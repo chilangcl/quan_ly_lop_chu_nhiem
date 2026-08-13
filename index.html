@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản Lý Lớp Chủ Nhiệm 12A8 - GDPT 2018</title>
+    <title>Quản Lý Lớp Chủ Nhiệm 12A8</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Vue 3 CDN -->
@@ -46,7 +46,7 @@
         <header class="bg-indigo-700 text-white rounded-xl p-6 shadow-lg mb-6 flex flex-col md:flex-row justify-between items-center gap-4 no-print">
             <div>
                 <h1 class="text-2xl font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-user-graduate"></i> Lớp 12A8 - GVCN: Nguyễn Văn Hoàng
+                    <i class="fa-solid fa-user-graduate"></i> Quản Lý Lớp 12A8 - GVCN: Nguyễn Văn Hoàng
                 </h1>
                 <p class="text-indigo-200 text-sm mt-1">Trường THPT Chi Lăng</p>
             </div>
@@ -62,7 +62,7 @@
                     </button>
                 </div>
 
-                <!-- Đăng nhập / Đăng xuất -->
+                <!-- Trạng thái Đăng nhập / Đăng xuất -->
                 <div class="bg-indigo-900 px-3 py-1.5 rounded-lg border border-indigo-400 flex items-center gap-3 text-xs">
                     <div class="flex items-center gap-1.5">
                         <i class="fa-solid fa-circle-user text-amber-300 text-base"></i>
@@ -72,17 +72,16 @@
                         </div>
                     </div>
                     <button v-if="currentUser.role !== 'guest'" @click="logout" class="bg-rose-500 hover:bg-rose-600 text-white font-bold px-2.5 py-1 rounded transition" title="Đăng xuất">
-                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <i class="fa-solid fa-right-from-bracket"></i> Đăng xuất
                     </button>
-                    <button v-else @click="showLoginModal = true" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-2.5 py-1 rounded transition">
+                    <button v-else @click="showLoginModal = true" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-1 rounded transition flex items-center gap-1 shadow">
                         <i class="fa-solid fa-key"></i> Đăng Nhập
                     </button>
                 </div>
 
-                <!-- Thao tác Giáo viên -->
+                <!-- Thao tác Giáo viên Chủ Nhiệm (Chỉ hiển thị khi đã đăng nhập vai trò GVCN) -->
                 <template v-if="currentUser.role === 'teacher'">
-                    <!-- NÚT TẢI FILE EXCEL MẪU -->
-                    <button @click="downloadTemplateExcel" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow transition" title="Tải file Excel mẫu để điền thông tin">
+                    <button @click="downloadTemplateExcel" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow transition" title="Tải file Excel mẫu">
                         <i class="fa-solid fa-file-arrow-down"></i> Tải Excel Mẫu
                     </button>
                     <label class="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow cursor-pointer transition">
@@ -101,6 +100,20 @@
                 </template>
             </div>
         </header>
+
+        <!-- BANNER THÔNG BÁO DÀNH CHO VAI TRÒ KHÁCH (CHƯA ĐĂNG NHẬP) -->
+        <div v-if="currentUser.role === 'guest'" class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-sm mb-6 flex flex-col sm:flex-row justify-between items-center gap-3 no-print">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-lock text-amber-600 text-2xl"></i>
+                <div>
+                    <p class="font-bold text-amber-900 text-sm">Bạn đang truy cập ở vai trò Khách (Chưa đăng nhập)</p>
+                    <p class="text-xs text-slate-600">Bạn chỉ có thể xem danh sách và sơ đồ lớp. Để thực hiện chấm nề nếp, xuất file hoặc quản lý, vui lòng Đăng nhập.</p>
+                </div>
+            </div>
+            <button @click="showLoginModal = true" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-lg text-xs whitespace-nowrap shadow transition flex items-center gap-1.5">
+                <i class="fa-solid fa-right-to-bracket"></i> Đăng Nhập Ngay
+            </button>
+        </div>
 
         <!-- Stats Overview -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6 no-print">
@@ -149,7 +162,7 @@
                                     <i class="fa-solid fa-crown mr-0.5"></i>{{ formatRoleTitle(student.role) }}
                                 </span>
                             </div>
-                            <p class="text-xs text-slate-500 mt-0.5">TK: <span class="font-mono text-indigo-600 font-bold">{{ student.username }}</span></p>
+                            <p class="text-xs text-slate-500 mt-0.5">SĐT PH: <span class="font-medium text-slate-700">{{ student.parentPhone }}</span></p>
                         </div>
                         <div class="flex items-center gap-2">
                             <span v-if="student.specialNote" class="text-rose-500 text-xs bg-rose-50 px-2 py-1 rounded" title="Có ghi chú đặc biệt">
@@ -177,7 +190,7 @@
                                 <i class="fa-solid fa-award mr-1"></i>{{ formatRoleTitle(selectedStudent.role) }}
                             </span>
                         </div>
-                        <span class="text-xs text-slate-500">Tổ {{ selectedStudent.group }} | Tài khoản: <strong class="font-mono text-indigo-700">{{ selectedStudent.username }}</strong></span>
+                        <span class="text-xs text-slate-500">Tổ {{ selectedStudent.group }} | Ngày sinh: {{ selectedStudent.dob }}</span>
                     </div>
 
                     <div v-if="currentUser.role === 'teacher'" class="flex flex-wrap items-center gap-2">
@@ -218,7 +231,7 @@
                             <label class="block text-xs text-slate-500 font-semibold mb-1">Họ và tên</label>
                             <p class="text-slate-800 font-medium bg-slate-50 p-2 rounded border">{{ selectedStudent.name }}</p>
                         </div>
-                        <div>
+                        <div v-if="currentUser.role === 'teacher'">
                             <label class="block text-xs text-slate-500 font-semibold mb-1">Tên đăng nhập / Mật khẩu</label>
                             <p class="text-slate-800 font-medium bg-slate-50 p-2 rounded border font-mono">
                                 {{ selectedStudent.username }} / {{ selectedStudent.password }}
@@ -275,6 +288,7 @@
 
                 <!-- Tab Discipline -->
                 <div v-if="activeTab === 'discipline'" class="space-y-4">
+                    <!-- Khóa form nếu là Khách -->
                     <div v-if="canEditDiscipline" class="bg-indigo-50 p-4 rounded-lg border border-indigo-100 flex flex-col gap-3">
                         <p class="text-xs font-bold text-indigo-800 uppercase"><i class="fa-solid fa-pen-to-square"></i> Ghi nhận vi phạm / khen thưởng theo ngày</p>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -293,6 +307,11 @@
                             <input v-model="newDiscipline.note" type="text" placeholder="Ghi chú chi tiết sự việc..." class="flex-grow p-2 text-sm border rounded outline-none">
                             <button @click="addDisciplineLog" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-indigo-700 transition">Thêm nhật ký</button>
                         </div>
+                    </div>
+
+                    <div v-else-if="currentUser.role === 'guest'" class="bg-amber-50 p-3 rounded-lg border border-amber-200 text-xs text-amber-800 flex justify-between items-center">
+                        <span><i class="fa-solid fa-lock mr-1"></i> Đăng nhập bằng tài khoản Giáo viên hoặc Ban cán sự để thực hiện chấm nề nếp.</span>
+                        <button @click="showLoginModal = true" class="bg-amber-600 text-white font-bold px-2 py-1 rounded">Đăng nhập</button>
                     </div>
 
                     <div class="space-y-2 max-h-[350px] overflow-y-auto">
@@ -327,7 +346,7 @@
                                 <option value="year">Cả Năm học</option>
                             </select>
                         </div>
-                        <button @click="exportSingleExcel" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded text-xs flex items-center gap-1.5 transition">
+                        <button v-if="currentUser.role !== 'guest'" @click="exportSingleExcel" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded text-xs flex items-center gap-1.5 transition">
                             <i class="fa-solid fa-file-excel"></i> Xuất Excel Học Sinh Này
                         </button>
                     </div>
@@ -363,7 +382,7 @@
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 no-print">
                 <div>
                     <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <i class="fa-solid fa-border-all text-indigo-600"></i> Sơ Đồ Lớp Học 12A1 (4 Tổ)
+                        <i class="fa-solid fa-border-all text-indigo-600"></i> Sơ Đồ Lớp Học 12A8 (4 Tổ)
                     </h2>
                     <p class="text-xs text-slate-500 mt-1">Bấm nút "In / Xuất PDF Sơ Đồ" để lưu hoặc in ấn sơ đồ chỗ ngồi chuẩn A4 Khổ ngang.</p>
                 </div>
@@ -381,7 +400,7 @@
 
             <!-- TIÊU ĐỀ KHI IN RA FILE PDF / GIẤY -->
             <div class="hidden print:block text-center mb-6">
-                <h1 class="text-2xl font-bold uppercase text-slate-900">SƠ ĐỒ LỚP HỌC 12A1</h1>
+                <h1 class="text-2xl font-bold uppercase text-slate-900">SƠ ĐỒ LỚP HỌC 12A8</h1>
                 <p class="text-sm font-semibold text-slate-600">Năm học 2026 - 2027 | Chương trình GDPT 2018</p>
                 <div class="w-24 h-1 bg-indigo-700 mx-auto mt-2"></div>
             </div>
@@ -421,7 +440,7 @@
                                  ]">
                                 
                                 <div class="flex justify-between items-center mb-0.5">
-                                    <span class="text-[9px] font-bold text-slate-400">#{{ student.username }}</span>
+                                    <span class="text-[9px] font-bold text-slate-400">Tổ {{ student.group }}</span>
                                     
                                     <div class="flex items-center gap-1">
                                         <span v-if="student.role === 'monitor'" class="bg-purple-600 text-white text-[8px] font-extrabold px-1 rounded">👑 LT</span>
@@ -512,6 +531,11 @@
                     <div>
                         <label class="block text-xs font-bold text-slate-600 mb-1">Mật Khẩu</label>
                         <input v-model="loginForm.password" type="password" placeholder="Mật khẩu..." class="w-full p-2 border rounded text-sm outline-none">
+                    </div>
+                    <div class="bg-slate-50 p-2.5 rounded text-[11px] text-slate-500 space-y-1">
+                        <p><strong>Mẫu đăng nhập thử nghiệm:</strong></p>
+                        <p>• Lớp trưởng: TK <code class="text-indigo-600 font-bold">an.nguyen</code> / MK <code class="text-indigo-600 font-bold">123</code></p>
+                        <p>• Tổ trưởng 2: TK <code class="text-indigo-600 font-bold">bich.tran</code> / MK <code class="text-indigo-600 font-bold">123</code></p>
                     </div>
                 </div>
 
@@ -643,10 +667,12 @@
                     showRoleManagerModal: false,
 
                     loginForm: { username: '', password: '' },
+                    
+                    // VAI TRÒ MẶC ĐỊNH LẦN ĐẦU TRUY CẬP LÀ KHÁCH (GUEST)
                     currentUser: {
-                        role: 'teacher',
-                        username: 'gvcn',
-                        name: 'Giáo viên Chủ nhiệm',
+                        role: 'guest',
+                        username: '',
+                        name: 'Khách (Chưa đăng nhập)',
                         studentId: null
                     },
 
@@ -782,7 +808,7 @@
                             'Tổ (1-4)': 1,
                             'Chức Vụ (monitor/leader_1..4/student)': 'monitor',
                             'Tên Đăng Nhập': 'an.nguyen',
-                            'Mật Khẩu': '123456',
+                            'Mật Khẩu': '123',
                             'Ngày Sinh (YYYY-MM-DD)': '2007-05-12',
                             'Tên Phụ Huynh': 'Nguyễn Văn B',
                             'SĐT Phụ Huynh': '0912345678',
@@ -793,38 +819,17 @@
                             'Tổ (1-4)': 2,
                             'Chức Vụ (monitor/leader_1..4/student)': 'leader_2',
                             'Tên Đăng Nhập': 'bich.tran',
-                            'Mật Khẩu': '123456',
+                            'Mật Khẩu': '123',
                             'Ngày Sinh (YYYY-MM-DD)': '2007-08-20',
                             'Tên Phụ Huynh': 'Trần Văn C',
                             'SĐT Phụ Huynh': '0987654321',
                             'Tổ Hợp Môn': 'Lịch sử, Địa lý, GDKT&PL'
-                        },
-                        {
-                            'Họ và Tên': 'Lê Hoàng Cường',
-                            'Tổ (1-4)': 3,
-                            'Chức Vụ (monitor/leader_1..4/student)': 'student',
-                            'Tên Đăng Nhập': 'cuong.le',
-                            'Mật Khẩu': '123456',
-                            'Ngày Sinh (YYYY-MM-DD)': '2007-03-15',
-                            'Tên Phụ Huynh': 'Lê Văn D',
-                            'SĐT Phụ Huynh': '0933445566',
-                            'Tổ Hợp Môn': 'Vật lý, Sinh học, Tin học'
                         }
                     ];
 
                     const worksheet = XLSX.utils.json_to_sheet(templateData);
-
-                    // Chỉnh độ rộng cột tự động cho đẹp
                     worksheet['!cols'] = [
-                        { wch: 22 }, // Họ và Tên
-                        { wch: 10 }, // Tổ
-                        { wch: 35 }, // Chức Vụ
-                        { wch: 18 }, // Tên Đăng Nhập
-                        { wch: 12 }, // Mật Khẩu
-                        { wch: 22 }, // Ngày Sinh
-                        { wch: 20 }, // Tên Phụ Huynh
-                        { wch: 16 }, // SĐT Phụ Huynh
-                        { wch: 30 }  // Tổ Hợp Môn
+                        { wch: 22 }, { wch: 10 }, { wch: 35 }, { wch: 18 }, { wch: 12 }, { wch: 22 }, { wch: 20 }, { wch: 16 }, { wch: 30 }
                     ];
 
                     const workbook = XLSX.utils.book_new();
@@ -860,8 +865,8 @@
                     }
                 },
                 logout() {
-                    this.currentUser = { role: 'guest', username: '', name: 'Khách', studentId: null };
-                    alert("Đã đăng xuất!");
+                    this.currentUser = { role: 'guest', username: '', name: 'Khách (Chưa đăng nhập)', studentId: null };
+                    alert("Đã đăng xuất! Bạn đang ở chế độ Khách.");
                 },
 
                 // IN SƠ ĐỒ LỚP HỌC
@@ -1006,7 +1011,7 @@
                                         group: Number(row['Tổ (1-4)']) || 1,
                                         role: row['Chức Vụ (monitor/leader_1..4/student)'] || 'student',
                                         username: String(row['Tên Đăng Nhập'] || ('hs' + (Date.now() + index).toString().slice(-4))),
-                                        password: String(row['Mật Khẩu'] || '123456'),
+                                        password: String(row['Mật Khẩu'] || '123'),
                                         dob: row['Ngày Sinh (YYYY-MM-DD)'] || '2007-01-01',
                                         parentName: row['Tên Phụ Huynh'] || 'N/A',
                                         parentPhone: String(row['SĐT Phụ Huynh'] || 'N/A'),
@@ -1070,10 +1075,10 @@
                     return map[key] || key;
                 },
                 saveData() {
-                    localStorage.setItem('gdpt2018_students_data_v8', JSON.stringify(this.students));
+                    localStorage.setItem('gdpt2018_students_data_v9', JSON.stringify(this.students));
                 },
                 loadData() {
-                    const saved = localStorage.getItem('gdpt2018_students_data_v8');
+                    const saved = localStorage.getItem('gdpt2018_students_data_v9');
                     if (saved) {
                         try { this.students = JSON.parse(saved); } catch(e) { console.error(e); }
                     }
