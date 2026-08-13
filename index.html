@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Lớp Chủ Nhiệm 12A8 - GDPT 2018</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS (XLSX Import/Export) CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- Style tối ưu riêng cho việc In / Xuất PDF -->
+    <style>
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                font-size: 12pt;
+            }
+            .print-area {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+            }
+            @page {
+                size: A4 landscape;
+                margin: 1cm;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen">
+    <div id="app" class="max-w-7xl mx-auto p-4 sm:p-6">
+        
+        <!-- Header & Auth Bar -->
+        <header class="bg-indigo-700 text-white rounded-xl p-6 shadow-lg mb-6 flex flex-col md:flex-row justify-between items-center gap-4 no-print">
+            <div>
+                <h1 class="text-2xl font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-user-graduate"></i> Lớp 12A8 - GVCN: Nguyễn Văn Hoàng
+                </h1>
+                <p class="text-indigo-200 text-sm mt-1">Trường THPT Chi Lăng</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Chuyển chế độ Xem -->
+                <div class="bg-indigo-800 p-1 rounded-lg border border-indigo-500 flex items-center text-xs">
+                    <button @click="mainView = 'list'" :class="['px-3 py-1.5 rounded-md font-bold transition flex items-center gap-1', mainView === 'list' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-200 hover:text-white']">
+                        <i class="fa-solid fa-list-ul"></i> Danh Sách
+                    </button>
+                    <button @click="mainView = 'seating'" :class="['px-3 py-1.5 rounded-md font-bold transition flex items-center gap-1', mainView === 'seating' ? 'bg-white text-indigo-900 shadow' : 'text-indigo-200 hover:text-white']">
+                        <i class="fa-solid fa-border-all"></i> Sơ Đồ Lớp
+                    </button>
+                </div>
+
+                <!-- Đăng nhập / Đăng xuất -->
+                <div class="bg-indigo-900 px-3 py-1.5 rounded-lg border border-indigo-400 flex items-center gap-3 text-xs">
+                    <div class="flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-user text-amber-300 text-base"></i>
+                        <div>
+                            <p class="font-bold text-white">{{ currentUser.name }}</p>
+                            <p class="text-[10px] text-indigo-200 uppercase font-semibold">{{ roleNameDisplay }}</p>
+                        </div>
+                    </div>
+                    <button v-if="currentUser.role !== 'guest'" @click="logout" class="bg-rose-500 hover:bg-rose-600 text-white font-bold px-2.5 py-1 rounded transition" title="Đăng xuất">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                    <button v-else @click="showLoginModal = true" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-2.5 py-1 rounded transition">
+                        <i class="fa-solid fa-key"></i> Đăng Nhập
+                    </button>
+                </div>
+
+                <!-- Thao tác Giáo viên -->
+                <template v-if="currentUser.role === 'teacher'">
+                    <!-- NÚT TẢI FILE EXCEL MẪU -->
+                    <button @click="downloadTemplateExcel" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow transition" title="Tải file Excel mẫu để điền thông tin">
+                        <i class="fa-solid fa-file-arrow-down"></i> Tải Excel Mẫu
+                    </button>
+                    <label class="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow cursor-pointer transition">
+                        <i class="fa-solid fa-file-import"></i> Nhập File Excel
+                        <input type="file" @change="importFromExcel" accept=".xlsx, .xls" class="hidden">
+                    </label>
+                    <button @click="showAccountModal = true" class="bg-cyan-600 hover:bg-cyan-700 text-white font-semibold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow transition">
+                        <i class="fa-solid fa-id-card-clip"></i> Cấp Tài Khoản
+                    </button>
+                    <button @click="openRoleManagerModal" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow transition">
+                        <i class="fa-solid fa-users-gear"></i> Ban Cán Sự
+                    </button>
+                    <button @click="openExportModal" class="bg-sky-500 hover:bg-sky-600 text-white font-semibold px-3 py-2 rounded-lg text-xs flex items-center gap-1 shadow transition">
+                        <i class="fa-solid fa-file-excel"></i> Xuất Báo Cáo
+                    </button>
+                </template>
+            </div>
+        </header>
+
+        <!-- Stats Overview -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6 no-print">
+            <div class="bg-white p-4 rounded-xl shadow border-l-4 border-indigo-500">
+                <p class="text-xs text-slate-500 font-semibold uppercase">Sĩ số lớp</p>
+                <p class="text-2xl font-bold text-slate-800">{{ students.length }} học sinh</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow border-l-4 border-purple-500">
+                <p class="text-xs text-slate-500 font-semibold uppercase">Ban Cán Sự Lớp</p>
+                <p class="text-2xl font-bold text-slate-800">{{ countClassOfficers }} thành viên</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow border-l-4 border-amber-500">
+                <p class="text-xs text-slate-500 font-semibold uppercase">Tổng vi phạm / điểm trừ</p>
+                <p class="text-2xl font-bold text-slate-800">{{ totalDisciplineIssues }} lượt</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow border-l-4 border-rose-500">
+                <p class="text-xs text-slate-500 font-semibold uppercase">Lưu ý đặc biệt</p>
+                <p class="text-2xl font-bold text-slate-800">{{ countSpecialAttention }} học sinh</p>
+            </div>
+        </div>
+
+        <!-- VIEW 1: DANH SÁCH & QUẢN LÝ HỌC SINH -->
+        <div v-if="mainView === 'list'" class="grid grid-cols-1 lg:grid-cols-3 gap-6 no-print">
+            <!-- Student List Side -->
+            <div class="lg:col-span-1 bg-white rounded-xl shadow p-4">
+                <div class="space-y-2 mb-4">
+                    <input v-model="searchQuery" type="text" placeholder="Tìm tên hoặc SĐT..." class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                    <div class="flex items-center gap-1 text-xs">
+                        <span class="font-bold text-slate-600">Lọc Tổ:</span>
+                        <button v-for="g in [0, 1, 2, 3, 4]" :key="g" @click="selectedGroupFilter = g" 
+                                :class="['px-2.5 py-1 rounded font-semibold transition', selectedGroupFilter === g ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']">
+                            {{ g === 0 ? 'Tất cả' : 'Tổ ' + g }}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-2 max-h-[550px] overflow-y-auto pr-1">
+                    <div v-for="student in filteredStudents" :key="student.id" 
+                         @click="selectStudent(student)"
+                         :class="['p-3 rounded-lg cursor-pointer transition border flex justify-between items-center group', selectedStudent && selectedStudent.id === student.id ? 'bg-indigo-50 border-indigo-500' : 'hover:bg-slate-50 border-slate-200']">
+                        <div class="flex-grow">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <p class="font-semibold text-slate-800">{{ student.name }}</p>
+                                <span class="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded">Tổ {{ student.group }}</span>
+                                <span v-if="student.role && student.role !== 'student'" class="bg-purple-100 text-purple-700 border border-purple-200 text-[10px] font-extrabold px-1.5 py-0.5 rounded">
+                                    <i class="fa-solid fa-crown mr-0.5"></i>{{ formatRoleTitle(student.role) }}
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-0.5">TK: <span class="font-mono text-indigo-600 font-bold">{{ student.username }}</span></p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span v-if="student.specialNote" class="text-rose-500 text-xs bg-rose-50 px-2 py-1 rounded" title="Có ghi chú đặc biệt">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </span>
+                            <button v-if="currentUser.role === 'teacher'" @click.stop="confirmDeleteStudent(student)" class="text-slate-300 hover:text-rose-600 p-1 rounded transition opacity-80 group-hover:opacity-100" title="Xóa học sinh">
+                                <i class="fa-solid fa-user-minus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <button v-if="currentUser.role === 'teacher'" @click="openAddModal" class="w-full mt-4 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2 rounded-lg border border-indigo-200 text-xs flex justify-center items-center gap-1 transition">
+                    <i class="fa-solid fa-user-plus"></i> Thêm Học Sinh Thủ Công
+                </button>
+            </div>
+
+            <!-- Student Detail -->
+            <div class="lg:col-span-2 bg-white rounded-xl shadow p-6" v-if="selectedStudent">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 pb-3 border-b">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-lg font-bold text-slate-800">{{ selectedStudent.name }}</h2>
+                            <span v-if="selectedStudent.role && selectedStudent.role !== 'student'" class="bg-purple-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                <i class="fa-solid fa-award mr-1"></i>{{ formatRoleTitle(selectedStudent.role) }}
+                            </span>
+                        </div>
+                        <span class="text-xs text-slate-500">Tổ {{ selectedStudent.group }} | Tài khoản: <strong class="font-mono text-indigo-700">{{ selectedStudent.username }}</strong></span>
+                    </div>
+
+                    <div v-if="currentUser.role === 'teacher'" class="flex flex-wrap items-center gap-2">
+                        <div class="flex items-center gap-1 text-xs bg-purple-50 p-1.5 rounded border border-purple-200">
+                            <span class="font-bold text-purple-800"><i class="fa-solid fa-user-gear"></i> Chức vụ:</span>
+                            <select v-model="selectedStudent.role" @change="saveData" class="font-bold border rounded px-1.5 py-0.5 bg-white text-purple-900 outline-none">
+                                <option value="student">Học sinh thường</option>
+                                <option value="monitor">Lớp trưởng / Lớp phó</option>
+                                <option value="leader_1">Tổ trưởng Tổ 1</option>
+                                <option value="leader_2">Tổ trưởng Tổ 2</option>
+                                <option value="leader_3">Tổ trưởng Tổ 3</option>
+                                <option value="leader_4">Tổ trưởng Tổ 4</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex border-b mb-6 gap-4 text-sm font-semibold overflow-x-auto">
+                    <button @click="activeTab = 'profile'" :class="['pb-2 border-b-2 transition whitespace-nowrap', activeTab === 'profile' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-800']">
+                        <i class="fa-solid fa-id-card mr-1"></i> Hồ Sơ
+                    </button>
+                    <button @click="activeTab = 'eval'" :class="['pb-2 border-b-2 transition whitespace-nowrap', activeTab === 'eval' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-800']">
+                        <i class="fa-solid fa-star mr-1"></i> Phẩm Chất & Năng Lực
+                    </button>
+                    <button @click="activeTab = 'discipline'" :class="['pb-2 border-b-2 transition whitespace-nowrap', activeTab === 'discipline' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-800']">
+                        <i class="fa-solid fa-clipboard-user mr-1"></i> Theo Dõi Nề Nếp
+                    </button>
+                    <button @click="activeTab = 'reports'" :class="['pb-2 border-b-2 transition whitespace-nowrap', activeTab === 'reports' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-800']">
+                        <i class="fa-solid fa-chart-line mr-1"></i> Thống Kê Báo Cáo
+                    </button>
+                </div>
+
+                <!-- Tab Profile -->
+                <div v-if="activeTab === 'profile'" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-slate-500 font-semibold mb-1">Họ và tên</label>
+                            <p class="text-slate-800 font-medium bg-slate-50 p-2 rounded border">{{ selectedStudent.name }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 font-semibold mb-1">Tên đăng nhập / Mật khẩu</label>
+                            <p class="text-slate-800 font-medium bg-slate-50 p-2 rounded border font-mono">
+                                {{ selectedStudent.username }} / {{ selectedStudent.password }}
+                            </p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 font-semibold mb-1">Phụ huynh & SĐT</label>
+                            <p class="text-slate-800 font-medium bg-slate-50 p-2 rounded border">{{ selectedStudent.parentName }} - {{ selectedStudent.parentPhone }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 font-semibold mb-1">Tổ hợp môn tự chọn (Lớp 12)</label>
+                            <p class="text-slate-800 font-medium bg-slate-50 p-2 rounded border">{{ selectedStudent.combination.join(', ') }}</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-500 font-semibold mb-1">Lưu ý sức khỏe / Hoàn cảnh / Tâm lý</label>
+                        <textarea v-model="selectedStudent.specialNote" :disabled="currentUser.role !== 'teacher'" @change="saveData" rows="3" class="w-full p-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-500" placeholder="Ghi chú hoàn cảnh gia đình, sức khỏe, cá tính..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Tab Eval -->
+                <div v-if="activeTab === 'eval'" class="space-y-6">
+                    <div>
+                        <h3 class="text-sm font-bold text-indigo-700 uppercase mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-heart"></i> 5 Phẩm Chất Chủ Yếu
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div v-for="(val, key) in selectedStudent.qualities" :key="key" class="flex justify-between items-center p-2 bg-slate-50 rounded border">
+                                <span class="text-sm font-medium capitalize">{{ formatQualityName(key) }}</span>
+                                <select v-model="selectedStudent.qualities[key]" :disabled="currentUser.role !== 'teacher'" @change="saveData" class="text-sm border rounded px-2 py-1 font-semibold bg-white disabled:bg-slate-100">
+                                    <option value="Tốt">Tốt</option>
+                                    <option value="Đạt">Đạt</option>
+                                    <option value="Cần cố gắng">Cần cố gắng</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-indigo-700 uppercase mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-brain"></i> Năng Lực Chung & Đặc Thù
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div v-for="(val, key) in selectedStudent.competencies" :key="key" class="flex justify-between items-center p-2 bg-slate-50 rounded border">
+                                <span class="text-sm font-medium capitalize">{{ formatCompetencyName(key) }}</span>
+                                <select v-model="selectedStudent.competencies[key]" :disabled="currentUser.role !== 'teacher'" @change="saveData" class="text-sm border rounded px-2 py-1 font-semibold bg-white disabled:bg-slate-100">
+                                    <option value="Tốt">Tốt</option>
+                                    <option value="Đạt">Đạt</option>
+                                    <option value="Cần cố gắng">Cần cố gắng</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Discipline -->
+                <div v-if="activeTab === 'discipline'" class="space-y-4">
+                    <div v-if="canEditDiscipline" class="bg-indigo-50 p-4 rounded-lg border border-indigo-100 flex flex-col gap-3">
+                        <p class="text-xs font-bold text-indigo-800 uppercase"><i class="fa-solid fa-pen-to-square"></i> Ghi nhận vi phạm / khen thưởng theo ngày</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <input v-model="newDiscipline.date" type="date" class="text-sm border rounded p-2 bg-white outline-none">
+                            <select v-model="newDiscipline.category" class="text-sm border rounded p-2 bg-white outline-none">
+                                <option value="Đi trễ">Đi trễ</option>
+                                <option value="Nghỉ không phép">Nghỉ không phép</option>
+                                <option value="Đồng phục / Tác phong">Sai đồng phục/tác phong</option>
+                                <option value="Mất trật tự / Không học bài">Mất trật tự / Không thuộc bài</option>
+                                <option value="Vi phạm khác">Vi phạm khác</option>
+                                <option value="Tuyên dương">Tuyên dương / Việc tốt (+)</option>
+                            </select>
+                            <input v-model.number="newDiscipline.points" type="number" placeholder="Điểm (+/-)" class="text-sm border rounded p-2 bg-white outline-none">
+                        </div>
+                        <div class="flex gap-2">
+                            <input v-model="newDiscipline.note" type="text" placeholder="Ghi chú chi tiết sự việc..." class="flex-grow p-2 text-sm border rounded outline-none">
+                            <button @click="addDisciplineLog" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-indigo-700 transition">Thêm nhật ký</button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 max-h-[350px] overflow-y-auto">
+                        <div v-for="(item, idx) in selectedStudent.disciplineLogs" :key="idx" class="p-3 rounded-lg border bg-white flex justify-between items-center">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-slate-500 font-bold"><i class="fa-regular fa-calendar"></i> {{ item.date }}</span>
+                                    <span :class="['text-xs px-2 py-0.5 rounded font-bold', item.category === 'Tuyên dương' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700']">
+                                        {{ item.category }}
+                                    </span>
+                                    <span :class="['text-xs font-bold px-2 py-0.5 rounded', item.points >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600']">
+                                        {{ item.points >= 0 ? '+' + item.points : item.points }} điểm
+                                    </span>
+                                </div>
+                                <p class="text-sm text-slate-700 mt-1">{{ item.note || 'Không có ghi chú' }}</p>
+                            </div>
+                            <button v-if="currentUser.role === 'teacher'" @click="removeDisciplineLog(idx)" class="text-slate-300 hover:text-rose-500 text-xs p-1" title="Xóa ghi nhận này"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                        <p v-if="!selectedStudent.disciplineLogs || selectedStudent.disciplineLogs.length === 0" class="text-center text-slate-400 text-sm py-4">Học sinh chưa có ghi nhận nề nếp nào.</p>
+                    </div>
+                </div>
+
+                <!-- Tab Reports -->
+                <div v-if="activeTab === 'reports'" class="space-y-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-3 rounded-lg border gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-bold text-slate-700">Thời gian:</span>
+                            <select v-model="singleReportMode" class="text-sm border rounded px-2 py-1 font-semibold bg-white outline-none">
+                                <option value="day">Theo Ngày chọn</option>
+                                <option value="week">Theo Tuần này</option>
+                                <option value="month">Theo Tháng này</option>
+                                <option value="year">Cả Năm học</option>
+                            </select>
+                        </div>
+                        <button @click="exportSingleExcel" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded text-xs flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-file-excel"></i> Xuất Excel Học Sinh Này
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100 text-center">
+                            <p class="text-xs text-indigo-600 font-bold uppercase">Lượt sự việc</p>
+                            <p class="text-2xl font-bold text-indigo-900">{{ studentReportStats.totalEvents }}</p>
+                        </div>
+                        <div class="bg-rose-50 p-4 rounded-lg border border-rose-100 text-center">
+                            <p class="text-xs text-rose-600 font-bold uppercase">Điểm trừ</p>
+                            <p class="text-2xl font-bold text-rose-900">{{ studentReportStats.minusPoints }}</p>
+                        </div>
+                        <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-100 text-center">
+                            <p class="text-xs text-emerald-600 font-bold uppercase">Điểm thưởng</p>
+                            <p class="text-2xl font-bold text-emerald-900">+{{ studentReportStats.plusPoints }}</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="lg:col-span-2 bg-white rounded-xl shadow p-12 text-center text-slate-400" v-else>
+                <i class="fa-solid fa-arrow-left text-3xl mb-2"></i>
+                <p>Chọn một học sinh bên danh sách trái để xem chi tiết.</p>
+            </div>
+        </div>
+
+        <!-- VIEW 2: SƠ ĐỒ LỚP HỌC 4 TỔ (CÓ TÍNH NĂNG IN / XUẤT PDF) -->
+        <div v-if="mainView === 'seating'" class="bg-white rounded-xl shadow p-6 space-y-6 print-area">
+            
+            <!-- Header Sơ đồ lớp & Thao tác In/PDF -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 no-print">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-border-all text-indigo-600"></i> Sơ Đồ Lớp Học 12A1 (4 Tổ)
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1">Bấm nút "In / Xuất PDF Sơ Đồ" để lưu hoặc in ấn sơ đồ chỗ ngồi chuẩn A4 Khổ ngang.</p>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <button @click="printSeatingChart" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-2 shadow transition">
+                        <i class="fa-solid fa-file-pdf"></i> In / Xuất PDF Sơ Đồ
+                    </button>
+                    <button v-if="currentUser.role === 'teacher'" @click="toggleSwapMode" 
+                            :class="['px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow', isSwapMode ? 'bg-amber-500 text-white animate-pulse' : 'bg-slate-100 text-slate-700 hover:bg-slate-200']">
+                        <i class="fa-solid fa-arrow-rotate-left"></i> {{ isSwapMode ? (swapStudentA ? 'Chọn Học Sinh B...' : 'Hủy Đổi Chỗ') : 'Đổi Chỗ Ngồi' }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- TIÊU ĐỀ KHI IN RA FILE PDF / GIẤY -->
+            <div class="hidden print:block text-center mb-6">
+                <h1 class="text-2xl font-bold uppercase text-slate-900">SƠ ĐỒ LỚP HỌC 12A1</h1>
+                <p class="text-sm font-semibold text-slate-600">Năm học 2026 - 2027 | Chương trình GDPT 2018</p>
+                <div class="w-24 h-1 bg-indigo-700 mx-auto mt-2"></div>
+            </div>
+
+            <!-- PHÒNG HỌC MÔ PHỎNG -->
+            <div class="bg-slate-50 p-6 rounded-2xl border-2 border-slate-200 space-y-6">
+                
+                <!-- BẢNG ĐEN & BÀN GIÁO VIÊN -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                    <div class="md:col-span-3 bg-slate-800 text-white rounded-xl py-2.5 text-center shadow font-bold text-sm tracking-widest border-2 border-slate-700 uppercase flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-chalkboard text-emerald-400"></i> BẢNG ĐEN
+                    </div>
+                    <div class="md:col-span-1 bg-amber-100 border-2 border-amber-300 text-amber-900 rounded-xl py-2.5 px-4 text-center font-bold text-xs shadow flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-chair text-amber-700"></i> BÀN GIÁO VIÊN
+                    </div>
+                </div>
+
+                <!-- DÃY BÀN HỌC SINH (4 TỔ) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div v-for="gNum in [1, 2, 3, 4]" :key="gNum" class="bg-white rounded-xl border-2 border-indigo-100 p-3 shadow-sm flex flex-col justify-between">
+                        
+                        <!-- Header Tổ -->
+                        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-1.5 text-center mb-3 flex justify-between items-center">
+                            <span class="font-extrabold text-indigo-900 text-xs uppercase">TỔ {{ gNum }}</span>
+                            <span class="text-[10px] bg-indigo-200 text-indigo-800 font-bold px-2 py-0.5 rounded-full">{{ getStudentsByGroup(gNum).length }} HS</span>
+                        </div>
+
+                        <!-- Danh sách ghế -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <div v-for="student in getStudentsByGroup(gNum)" :key="student.id"
+                                 @click="handleSeatClick(student)"
+                                 :class="[
+                                    'p-2 rounded-lg border text-left transition cursor-pointer relative flex flex-col justify-between min-h-[70px]',
+                                    swapStudentA && swapStudentA.id === student.id ? 'ring-4 ring-amber-400 bg-amber-50 border-amber-500 scale-105 z-10' : '',
+                                    student.role === 'monitor' ? 'bg-purple-50 border-purple-300' :
+                                    student.role.startsWith('leader_') ? 'bg-amber-50/80 border-amber-300' : 'bg-white border-slate-200'
+                                 ]">
+                                
+                                <div class="flex justify-between items-center mb-0.5">
+                                    <span class="text-[9px] font-bold text-slate-400">#{{ student.username }}</span>
+                                    
+                                    <div class="flex items-center gap-1">
+                                        <span v-if="student.role === 'monitor'" class="bg-purple-600 text-white text-[8px] font-extrabold px-1 rounded">👑 LT</span>
+                                        <span v-else-if="student.role.startsWith('leader_')" class="bg-amber-600 text-white text-[8px] font-extrabold px-1 rounded">⭐ TT</span>
+                                    </div>
+                                </div>
+
+                                <p class="font-bold text-slate-800 text-xs truncate" :title="student.name">{{ student.name }}</p>
+
+                                <div class="mt-1 flex justify-between items-center text-[9px] border-t pt-0.5 border-slate-100">
+                                    <span class="text-slate-400">Vi phạm:</span>
+                                    <span :class="['font-bold', getStudentTotalMinus(student) > 0 ? 'text-rose-600' : 'text-slate-400']">
+                                        {{ getStudentTotalMinus(student) > 0 ? '-' + getStudentTotalMinus(student) : '0' }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+            
+            <!-- Chú thích -->
+            <div class="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-600 pt-2">
+                <div class="flex items-center gap-1.5"><span class="w-3 h-3 bg-purple-100 border border-purple-400 rounded"></span> Ban Cán Sự Lớp (👑)</div>
+                <div class="flex items-center gap-1.5"><span class="w-3 h-3 bg-amber-100 border border-amber-400 rounded"></span> Tổ Trưởng (⭐)</div>
+                <div class="flex items-center gap-1.5"><span class="w-3 h-3 bg-white border border-slate-300 rounded"></span> Học Sinh Thường</div>
+            </div>
+        </div>
+
+        <!-- MODAL 1: CẤP TÀI KHOẢN HỌC SINH -->
+        <div v-if="showAccountModal" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 no-print">
+            <div class="bg-white rounded-xl shadow-xl max-w-3xl w-full p-6 space-y-4 max-h-[90vh] flex flex-col">
+                <div class="flex justify-between items-center border-b pb-3">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-id-card-clip text-cyan-600"></i> Quản Lý Tài Khoản Đăng Nhập Của Lớp
+                    </h3>
+                    <button @click="showAccountModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+
+                <div class="overflow-y-auto space-y-2 flex-grow pr-1 text-sm">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-100 text-slate-700 text-xs uppercase">
+                            <tr>
+                                <th class="p-2 border">Họ và Tên</th>
+                                <th class="p-2 border">Chức vụ</th>
+                                <th class="p-2 border">Tên Đăng Nhập</th>
+                                <th class="p-2 border">Mật Khẩu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="student in students" :key="student.id" class="border-b hover:bg-slate-50">
+                                <td class="p-2 font-semibold text-slate-800">{{ student.name }} (Tổ {{ student.group }})</td>
+                                <td class="p-2 text-xs font-bold text-purple-700">{{ formatRoleTitle(student.role) }}</td>
+                                <td class="p-2 font-mono text-xs">
+                                    <input v-model="student.username" @change="saveData" type="text" class="border rounded px-2 py-1 w-28 bg-white font-bold">
+                                </td>
+                                <td class="p-2 font-mono text-xs">
+                                    <input v-model="student.password" @change="saveData" type="text" class="border rounded px-2 py-1 w-28 bg-white font-bold">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-end pt-3 border-t">
+                    <button @click="showAccountModal = false" class="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-semibold hover:bg-indigo-700">Đóng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL 2: ĐĂNG NHẬP -->
+        <div v-if="showLoginModal" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 no-print">
+            <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+                <div class="flex justify-between items-center border-b pb-3">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-key text-indigo-600"></i> Đăng Nhập Hệ Thống
+                    </h3>
+                    <button @click="showLoginModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Tên Đăng Nhập</label>
+                        <input v-model="loginForm.username" type="text" placeholder="Gõ 'gvcn' hoặc tên đăng nhập học sinh..." class="w-full p-2 border rounded text-sm outline-none font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Mật Khẩu</label>
+                        <input v-model="loginForm.password" type="password" placeholder="Mật khẩu..." class="w-full p-2 border rounded text-sm outline-none">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t">
+                    <button @click="showLoginModal = false" class="px-4 py-2 border text-slate-600 rounded text-sm hover:bg-slate-50">Hủy</button>
+                    <button @click="handleLogin" class="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-semibold hover:bg-indigo-700">Đăng Nhập</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL 3: BAN CÁN SỰ -->
+        <div v-if="showRoleManagerModal" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 no-print">
+            <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] flex flex-col">
+                <div class="flex justify-between items-center border-b pb-3">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-users-gear text-purple-600"></i> Phân Quyền Ban Cán Sự Lớp
+                    </h3>
+                    <button @click="showRoleManagerModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+
+                <div class="overflow-y-auto space-y-3 flex-grow pr-1">
+                    <div v-for="roleItem in roleListConfig" :key="roleItem.key" class="p-3 bg-purple-50/50 rounded-lg border border-purple-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div>
+                            <p class="text-sm font-bold text-purple-900">{{ roleItem.title }}</p>
+                            <p class="text-xs text-slate-500">{{ roleItem.desc }}</p>
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                            <select :value="getStudentIdByRole(roleItem.key)" @change="assignRoleToStudent(roleItem.key, $event.target.value)" class="text-xs font-bold p-2 border rounded bg-white text-slate-800 outline-none w-full sm:w-48">
+                                <option value="">-- Chưa phân công --</option>
+                                <option v-for="s in students" :key="s.id" :value="s.id">{{ s.name }} (Tổ {{ s.group }})</option>
+                            </select>
+                            <button v-if="getStudentIdByRole(roleItem.key)" @click="revokeRole(roleItem.key)" class="text-rose-600 hover:bg-rose-50 p-2 rounded text-xs">
+                                <i class="fa-solid fa-user-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-3 border-t">
+                    <button @click="showRoleManagerModal = false" class="px-4 py-2 bg-purple-600 text-white rounded text-sm font-semibold hover:bg-purple-700">Đóng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL 4: ADD STUDENT -->
+        <div v-if="showModal" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 no-print">
+            <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+                <h3 class="text-lg font-bold text-slate-800">Thêm Học Sinh Mới</h3>
+                <div class="space-y-3">
+                    <input v-model="newStudent.name" type="text" placeholder="Họ và tên học sinh *" class="w-full p-2 border rounded text-sm outline-none">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-slate-500 font-semibold mb-1">Phân Tổ</label>
+                            <select v-model.number="newStudent.group" class="w-full p-2 border rounded text-sm outline-none">
+                                <option :value="1">Tổ 1</option>
+                                <option :value="2">Tổ 2</option>
+                                <option :value="3">Tổ 3</option>
+                                <option :value="4">Tổ 4</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 font-semibold mb-1">Tên Đăng Nhập</label>
+                            <input v-model="newStudent.username" type="text" placeholder="Vd: an.nguyen" class="w-full p-2 border rounded text-sm outline-none">
+                        </div>
+                    </div>
+                    <input v-model="newStudent.parentName" type="text" placeholder="Tên phụ huynh" class="w-full p-2 border rounded text-sm outline-none">
+                    <input v-model="newStudent.parentPhone" type="text" placeholder="Số điện thoại phụ huynh" class="w-full p-2 border rounded text-sm outline-none">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button @click="showModal = false" class="px-4 py-2 border text-slate-600 rounded text-sm hover:bg-slate-50">Hủy</button>
+                    <button @click="addStudent" class="px-4 py-2 bg-indigo-600 text-white rounded text-sm font-semibold hover:bg-indigo-700">Lưu Học Sinh</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL 5: EXPORT EXCEL -->
+        <div v-if="showExportModal" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 no-print">
+            <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-file-excel text-emerald-600"></i> Xuất Báo Cáo Lớp Ra Excel
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Khoảng thời gian:</label>
+                        <select v-model="exportClassMode" class="w-full p-2 border rounded text-sm outline-none font-semibold">
+                            <option value="day">Theo Ngày cụ thể</option>
+                            <option value="week">Theo Tuần này</option>
+                            <option value="month">Theo Tháng này</option>
+                            <option value="year">Cả Năm học</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Phạm vi Tổ:</label>
+                        <select v-model.number="exportClassGroup" class="w-full p-2 border rounded text-sm outline-none font-semibold">
+                            <option :value="0">Toàn bộ Lớp (Tất cả)</option>
+                            <option :value="1">Chỉ học sinh Tổ 1</option>
+                            <option :value="2">Chỉ học sinh Tổ 2</option>
+                            <option :value="3">Chỉ học sinh Tổ 3</option>
+                            <option :value="4">Chỉ học sinh Tổ 4</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t">
+                    <button @click="showExportModal = false" class="px-4 py-2 border text-slate-600 rounded text-sm hover:bg-slate-50">Hủy</button>
+                    <button @click="processClassExport" class="px-4 py-2 bg-emerald-600 text-white rounded text-sm font-semibold hover:bg-emerald-700 flex items-center gap-1">
+                        <i class="fa-solid fa-download"></i> Tải Báo Cáo Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Vue 3 App Logic -->
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    mainView: 'list',
+                    isSwapMode: false,
+                    swapStudentA: null,
+
+                    showLoginModal: false,
+                    showAccountModal: false,
+                    showModal: false,
+                    showExportModal: false,
+                    showRoleManagerModal: false,
+
+                    loginForm: { username: '', password: '' },
+                    currentUser: {
+                        role: 'teacher',
+                        username: 'gvcn',
+                        name: 'Giáo viên Chủ nhiệm',
+                        studentId: null
+                    },
+
+                    searchQuery: '',
+                    selectedGroupFilter: 0,
+                    activeTab: 'profile',
+                    selectedStudent: null,
+                    
+                    singleReportMode: 'month',
+                    exportClassMode: 'month',
+                    exportClassGroup: 0,
+
+                    roleListConfig: [
+                        { key: 'monitor', title: 'Lớp Trưởng / Lớp Phó', desc: 'Chấm nề nếp toàn lớp' },
+                        { key: 'leader_1', title: 'Tổ Trưởng Tổ 1', desc: 'Ghi nhận thi đua Tổ 1' },
+                        { key: 'leader_2', title: 'Tổ Trưởng Tổ 2', desc: 'Ghi nhận thi đua Tổ 2' },
+                        { key: 'leader_3', title: 'Tổ Trưởng Tổ 3', desc: 'Ghi nhận thi đua Tổ 3' },
+                        { key: 'leader_4', title: 'Tổ Trưởng Tổ 4', desc: 'Ghi nhận thi đua Tổ 4' },
+                    ],
+
+                    newDiscipline: {
+                        date: new Date().toISOString().split('T')[0],
+                        category: 'Đi trễ',
+                        points: -2,
+                        note: ''
+                    },
+                    newStudent: { name: '', group: 1, role: 'student', username: '', password: '123', parentName: '', parentPhone: '' },
+                    students: [
+                        {
+                            id: 1,
+                            name: 'Nguyễn Văn An',
+                            group: 1,
+                            role: 'monitor',
+                            username: 'an.nguyen',
+                            password: '123',
+                            dob: '2007-05-12',
+                            parentName: 'Nguyễn Văn B',
+                            parentPhone: '0912345678',
+                            combination: ['Vật lý', 'Hóa học', 'Tin học'],
+                            specialNote: 'Gia đình xa trường, đi xe buýt.',
+                            qualities: { patriotism: 'Tốt', humanity: 'Tốt', diligence: 'Tốt', honesty: 'Tốt', responsibility: 'Tốt' },
+                            competencies: { autonomy: 'Tốt', communication: 'Tốt', problemSolving: 'Đạt', digital: 'Tốt' },
+                            disciplineLogs: [
+                                { date: '2026-08-10', category: 'Tuyên dương', points: 5, note: 'Tích cực hỗ trợ lớp' }
+                            ]
+                        },
+                        {
+                            id: 2,
+                            name: 'Trần Thị Bích',
+                            group: 2,
+                            role: 'leader_2',
+                            username: 'bich.tran',
+                            password: '123',
+                            dob: '2007-08-20',
+                            parentName: 'Trần Văn C',
+                            parentPhone: '0987654321',
+                            combination: ['Lịch sử', 'Địa lý', 'GDKT&PL'],
+                            specialNote: '',
+                            qualities: { patriotism: 'Tốt', humanity: 'Tốt', diligence: 'Đạt', honesty: 'Tốt', responsibility: 'Đạt' },
+                            competencies: { autonomy: 'Đạt', communication: 'Tốt', problemSolving: 'Đạt', digital: 'Đạt' },
+                            disciplineLogs: []
+                        }
+                    ]
+                }
+            },
+            computed: {
+                roleNameDisplay() {
+                    const map = {
+                        teacher: 'Giáo viên Chủ nhiệm',
+                        monitor: 'Lớp trưởng / Lớp phó',
+                        leader_1: 'Tổ trưởng Tổ 1',
+                        leader_2: 'Tổ trưởng Tổ 2',
+                        leader_3: 'Tổ trưởng Tổ 3',
+                        leader_4: 'Tổ trưởng Tổ 4',
+                        student: 'Học sinh',
+                        guest: 'Khách (Chưa đăng nhập)'
+                    };
+                    return map[this.currentUser.role] || 'Học sinh';
+                },
+                canEditDiscipline() {
+                    if (this.currentUser.role === 'teacher' || this.currentUser.role === 'monitor') return true;
+                    if (this.currentUser.role.startsWith('leader_') && this.selectedStudent) {
+                        const groupNum = Number(this.currentUser.role.split('_')[1]);
+                        return this.selectedStudent.group === groupNum;
+                    }
+                    return false;
+                },
+                countClassOfficers() {
+                    return this.students.filter(s => s.role && s.role !== 'student').length;
+                },
+                filteredStudents() {
+                    return this.students.filter(s => {
+                        const matchGroupFilter = (this.selectedGroupFilter === 0 || s.group === this.selectedGroupFilter);
+                        let matchRolePermission = true;
+                        if (this.currentUser.role.startsWith('leader_')) {
+                            const groupNum = Number(this.currentUser.role.split('_')[1]);
+                            matchRolePermission = (s.group === groupNum);
+                        } else if (this.currentUser.role === 'student') {
+                            matchRolePermission = (s.id === this.currentUser.studentId);
+                        }
+                        const matchSearch = s.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                                            s.parentPhone.includes(this.searchQuery);
+                        return matchGroupFilter && matchRolePermission && matchSearch;
+                    });
+                },
+                countSpecialAttention() {
+                    return this.students.filter(s => s.specialNote && s.specialNote.trim() !== '').length;
+                },
+                totalDisciplineIssues() {
+                    return this.students.reduce((acc, s) => {
+                        return acc + (s.disciplineLogs ? s.disciplineLogs.filter(d => d.points < 0).length : 0);
+                    }, 0);
+                },
+                studentReportStats() {
+                    if (!this.selectedStudent || !this.selectedStudent.disciplineLogs) {
+                        return { totalEvents: 0, minusPoints: 0, plusPoints: 0 };
+                    }
+                    const logs = this.selectedStudent.disciplineLogs;
+                    let minus = 0; let plus = 0;
+                    logs.forEach(l => {
+                        if (l.points < 0) minus += Math.abs(l.points);
+                        else plus += l.points;
+                    });
+                    return { totalEvents: logs.length, minusPoints: minus, plusPoints: plus };
+                }
+            },
+            methods: {
+                // TẠO VÀ TẢI FILE EXCEL MẪU CHUẨN
+                downloadTemplateExcel() {
+                    const templateData = [
+                        {
+                            'Họ và Tên': 'Nguyễn Văn An',
+                            'Tổ (1-4)': 1,
+                            'Chức Vụ (monitor/leader_1..4/student)': 'monitor',
+                            'Tên Đăng Nhập': 'an.nguyen',
+                            'Mật Khẩu': '123456',
+                            'Ngày Sinh (YYYY-MM-DD)': '2007-05-12',
+                            'Tên Phụ Huynh': 'Nguyễn Văn B',
+                            'SĐT Phụ Huynh': '0912345678',
+                            'Tổ Hợp Môn': 'Vật lý, Hóa học, Tin học'
+                        },
+                        {
+                            'Họ và Tên': 'Trần Thị Bích',
+                            'Tổ (1-4)': 2,
+                            'Chức Vụ (monitor/leader_1..4/student)': 'leader_2',
+                            'Tên Đăng Nhập': 'bich.tran',
+                            'Mật Khẩu': '123456',
+                            'Ngày Sinh (YYYY-MM-DD)': '2007-08-20',
+                            'Tên Phụ Huynh': 'Trần Văn C',
+                            'SĐT Phụ Huynh': '0987654321',
+                            'Tổ Hợp Môn': 'Lịch sử, Địa lý, GDKT&PL'
+                        },
+                        {
+                            'Họ và Tên': 'Lê Hoàng Cường',
+                            'Tổ (1-4)': 3,
+                            'Chức Vụ (monitor/leader_1..4/student)': 'student',
+                            'Tên Đăng Nhập': 'cuong.le',
+                            'Mật Khẩu': '123456',
+                            'Ngày Sinh (YYYY-MM-DD)': '2007-03-15',
+                            'Tên Phụ Huynh': 'Lê Văn D',
+                            'SĐT Phụ Huynh': '0933445566',
+                            'Tổ Hợp Môn': 'Vật lý, Sinh học, Tin học'
+                        }
+                    ];
+
+                    const worksheet = XLSX.utils.json_to_sheet(templateData);
+
+                    // Chỉnh độ rộng cột tự động cho đẹp
+                    worksheet['!cols'] = [
+                        { wch: 22 }, // Họ và Tên
+                        { wch: 10 }, // Tổ
+                        { wch: 35 }, // Chức Vụ
+                        { wch: 18 }, // Tên Đăng Nhập
+                        { wch: 12 }, // Mật Khẩu
+                        { wch: 22 }, // Ngày Sinh
+                        { wch: 20 }, // Tên Phụ Huynh
+                        { wch: 16 }, // SĐT Phụ Huynh
+                        { wch: 30 }  // Tổ Hợp Môn
+                    ];
+
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "Mau_Nhap_Lop_12");
+                    XLSX.writeFile(workbook, "Mau_Nhap_Danh_Sach_Hoc_Sinh_Lop_12.xlsx");
+                },
+
+                // ĐĂNG NHẬP / ĐĂNG XUẤT
+                handleLogin() {
+                    const u = this.loginForm.username.trim().toLowerCase();
+                    const p = this.loginForm.password.trim();
+
+                    if (u === 'gvcn' && (p === '123456' || p === '123')) {
+                        this.currentUser = { role: 'teacher', username: 'gvcn', name: 'Giáo viên Chủ nhiệm', studentId: null };
+                        this.showLoginModal = false;
+                        alert("Đăng nhập thành công với vai trò Giáo viên Chủ nhiệm!");
+                        return;
+                    }
+
+                    const foundStudent = this.students.find(s => s.username.toLowerCase() === u && s.password === p);
+                    if (foundStudent) {
+                        this.currentUser = {
+                            role: foundStudent.role || 'student',
+                            username: foundStudent.username,
+                            name: foundStudent.name,
+                            studentId: foundStudent.id
+                        };
+                        this.selectedStudent = foundStudent;
+                        this.showLoginModal = false;
+                        alert(`Đăng nhập thành công! Chào ${foundStudent.name}`);
+                    } else {
+                        alert("Sai Tên đăng nhập hoặc Mật khẩu!");
+                    }
+                },
+                logout() {
+                    this.currentUser = { role: 'guest', username: '', name: 'Khách', studentId: null };
+                    alert("Đã đăng xuất!");
+                },
+
+                // IN SƠ ĐỒ LỚP HỌC
+                printSeatingChart() {
+                    window.print();
+                },
+
+                // SƠ ĐỒ LỚP HỌC
+                getStudentsByGroup(groupNum) {
+                    return this.students.filter(s => s.group === groupNum);
+                },
+                getStudentTotalMinus(student) {
+                    if (!student.disciplineLogs) return 0;
+                    return student.disciplineLogs.filter(d => d.points < 0).reduce((sum, d) => sum + Math.abs(d.points), 0);
+                },
+                toggleSwapMode() {
+                    this.isSwapMode = !this.isSwapMode;
+                    this.swapStudentA = null;
+                },
+                handleSeatClick(student) {
+                    if (this.isSwapMode) {
+                        if (!this.swapStudentA) {
+                            this.swapStudentA = student;
+                        } else if (this.swapStudentA.id === student.id) {
+                            this.swapStudentA = null;
+                        } else {
+                            const groupTemp = this.swapStudentA.group;
+                            this.swapStudentA.group = student.group;
+                            student.group = groupTemp;
+
+                            this.saveData();
+                            alert(`Đã hoán đổi chỗ ngồi giữa "${this.swapStudentA.name}" và "${student.name}"!`);
+                            this.swapStudentA = null;
+                            this.isSwapMode = false;
+                        }
+                    } else {
+                        this.selectedStudent = student;
+                        this.mainView = 'list';
+                    }
+                },
+
+                // BAN CÁN SỰ
+                openRoleManagerModal() {
+                    this.showRoleManagerModal = true;
+                },
+                getStudentIdByRole(roleKey) {
+                    const st = this.students.find(s => s.role === roleKey);
+                    return st ? st.id : '';
+                },
+                assignRoleToStudent(roleKey, studentId) {
+                    this.students.forEach(s => { if (s.role === roleKey) s.role = 'student'; });
+                    if (studentId) {
+                        const st = this.students.find(s => s.id === Number(studentId));
+                        if (st) st.role = roleKey;
+                    }
+                    this.saveData();
+                },
+                revokeRole(roleKey) {
+                    this.students.forEach(s => { if (s.role === roleKey) s.role = 'student'; });
+                    this.saveData();
+                },
+                formatRoleTitle(roleKey) {
+                    const map = { monitor: 'Lớp Trưởng', leader_1: 'Tổ Trưởng 1', leader_2: 'Tổ Trưởng 2', leader_3: 'Tổ Trưởng 3', leader_4: 'Tổ Trưởng 4', student: 'Học sinh' };
+                    return map[roleKey] || 'Học sinh';
+                },
+
+                selectStudent(student) {
+                    this.selectedStudent = student;
+                    if (!this.selectedStudent.disciplineLogs) this.selectedStudent.disciplineLogs = [];
+                },
+                openAddModal() {
+                    this.newStudent = { name: '', group: 1, role: 'student', username: '', password: '123', parentName: '', parentPhone: '' };
+                    this.showModal = true;
+                },
+                addStudent() {
+                    if (!this.newStudent.name) return;
+                    const studentObj = {
+                        id: Date.now(),
+                        name: this.newStudent.name,
+                        group: Number(this.newStudent.group) || 1,
+                        role: 'student',
+                        username: this.newStudent.username || 'hs' + Date.now().toString().slice(-4),
+                        password: '123',
+                        dob: '2007-01-01',
+                        parentName: this.newStudent.parentName || 'N/A',
+                        parentPhone: this.newStudent.parentPhone || 'N/A',
+                        combination: ['Vật lý', 'Hóa học'],
+                        specialNote: '',
+                        qualities: { patriotism: 'Đạt', humanity: 'Đạt', diligence: 'Đạt', honesty: 'Đạt', responsibility: 'Đạt' },
+                        competencies: { autonomy: 'Đạt', communication: 'Đạt', problemSolving: 'Đạt', digital: 'Đạt' },
+                        disciplineLogs: []
+                    };
+                    this.students.push(studentObj);
+                    this.selectedStudent = studentObj;
+                    this.showModal = false;
+                    this.saveData();
+                },
+                confirmDeleteStudent(student) {
+                    if (confirm(`Xóa học sinh "${student.name}"?`)) {
+                        this.students = this.students.filter(s => s.id !== student.id);
+                        if (this.selectedStudent && this.selectedStudent.id === student.id) {
+                            this.selectedStudent = this.students.length > 0 ? this.students[0] : null;
+                        }
+                        this.saveData();
+                    }
+                },
+                addDisciplineLog() {
+                    if (!this.selectedStudent) return;
+                    if (!this.selectedStudent.disciplineLogs) this.selectedStudent.disciplineLogs = [];
+                    this.selectedStudent.disciplineLogs.unshift({
+                        date: this.newDiscipline.date,
+                        category: this.newDiscipline.category,
+                        points: Number(this.newDiscipline.points) || 0,
+                        note: this.newDiscipline.note
+                    });
+                    this.newDiscipline.note = '';
+                    this.saveData();
+                },
+                removeDisciplineLog(index) {
+                    this.selectedStudent.disciplineLogs.splice(index, 1);
+                    this.saveData();
+                },
+
+                // NHẬP EXCEL TỪ FILE TẢI LÊN
+                importFromExcel(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+                            let count = 0;
+                            jsonData.forEach((row, index) => {
+                                const name = row['Họ và Tên'];
+                                if (name) {
+                                    this.students.push({
+                                        id: Date.now() + index,
+                                        name: name,
+                                        group: Number(row['Tổ (1-4)']) || 1,
+                                        role: row['Chức Vụ (monitor/leader_1..4/student)'] || 'student',
+                                        username: String(row['Tên Đăng Nhập'] || ('hs' + (Date.now() + index).toString().slice(-4))),
+                                        password: String(row['Mật Khẩu'] || '123456'),
+                                        dob: row['Ngày Sinh (YYYY-MM-DD)'] || '2007-01-01',
+                                        parentName: row['Tên Phụ Huynh'] || 'N/A',
+                                        parentPhone: String(row['SĐT Phụ Huynh'] || 'N/A'),
+                                        combination: row['Tổ Hợp Môn'] ? String(row['Tổ Hợp Môn']).split(',').map(s => s.trim()) : ['Vật lý', 'Hóa học'],
+                                        specialNote: '',
+                                        qualities: { patriotism: 'Đạt', humanity: 'Đạt', diligence: 'Đạt', honesty: 'Đạt', responsibility: 'Đạt' },
+                                        competencies: { autonomy: 'Đạt', communication: 'Đạt', problemSolving: 'Đạt', digital: 'Đạt' },
+                                        disciplineLogs: []
+                                    });
+                                    count++;
+                                }
+                            });
+                            this.saveData();
+                            alert(`Đã nhập ${count} học sinh thành công từ file Excel!`);
+                        } catch (err) {
+                            alert("Có lỗi xảy ra khi đọc file Excel! Vui lòng sử dụng đúng File Excel Mẫu.");
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                    event.target.value = '';
+                },
+                exportSingleExcel() {
+                    if (!this.selectedStudent) return;
+                    const worksheet = XLSX.utils.json_to_sheet(this.selectedStudent.disciplineLogs || []);
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "BaoCao");
+                    XLSX.writeFile(workbook, `BaoCao_${this.selectedStudent.name}.xlsx`);
+                },
+                openExportModal() {
+                    this.showExportModal = true;
+                },
+                processClassExport() {
+                    const exportLogs = [];
+                    this.students.forEach(student => {
+                        if (this.exportClassGroup === 0 || student.group === this.exportClassGroup) {
+                            (student.disciplineLogs || []).forEach(log => {
+                                exportLogs.push({
+                                    'Họ và Tên': student.name,
+                                    'Tổ': student.group,
+                                    'Ngày': log.date,
+                                    'Hạng mục': log.category,
+                                    'Điểm': log.points,
+                                    'Ghi chú': log.note
+                                });
+                            });
+                        }
+                    });
+                    const worksheet = XLSX.utils.json_to_sheet(exportLogs);
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "TongHop");
+                    XLSX.writeFile(workbook, `BaoCao_Class_12A1.xlsx`);
+                    this.showExportModal = false;
+                },
+
+                formatQualityName(key) {
+                    const map = { patriotism: 'Yêu nước', humanity: 'Nhân ái', diligence: 'Chăm chỉ', honesty: 'Trung thực', responsibility: 'Trách nhiệm' };
+                    return map[key] || key;
+                },
+                formatCompetencyName(key) {
+                    const map = { autonomy: 'Tự chủ & Tự học', communication: 'Giao tiếp & Hợp tác', problemSolving: 'Giải quyết vấn đề', digital: 'Năng lực Tin học' };
+                    return map[key] || key;
+                },
+                saveData() {
+                    localStorage.setItem('gdpt2018_students_data_v8', JSON.stringify(this.students));
+                },
+                loadData() {
+                    const saved = localStorage.getItem('gdpt2018_students_data_v8');
+                    if (saved) {
+                        try { this.students = JSON.parse(saved); } catch(e) { console.error(e); }
+                    }
+                    if (this.students.length > 0) {
+                        this.selectedStudent = this.students[0];
+                    }
+                }
+            },
+            mounted() {
+                this.loadData();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
