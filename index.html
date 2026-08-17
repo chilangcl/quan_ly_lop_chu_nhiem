@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClassManager Pro - Quản Lý Lớp Chủ Nhiệm</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SheetJS (XLSX) CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased min-h-screen flex flex-col pb-20 md:pb-0">
+
+    <!-- HEADER / NAVIGATION -->
+    <header class="bg-brand-600 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-graduation-cap text-2xl text-amber-300"></i>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">ClassManager Pro</h1>
+                    <p class="text-xs text-brand-100" id="current-class-display">Chưa chọn lớp</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <span id="user-badge" class="bg-brand-700 text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
+                    <i class="fa-solid fa-user-tag text-xs"></i> <span id="user-role-text">Khách (Guest)</span>
+                </span>
+                <button id="auth-btn" onclick="openLoginModal()" class="bg-white text-brand-600 px-3 py-1 rounded-lg text-sm font-semibold hover:bg-brand-50 transition shadow-sm">
+                    <i class="fa-solid fa-right-to-bracket"></i> <span id="auth-btn-text">Đăng nhập</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="flex-1 max-w-7xl w-full mx-auto flex flex-col md:flex-row">
+        
+        <!-- SIDEBAR (DESKTOP) -->
+        <aside class="w-full md:w-64 bg-white border-r border-gray-200 hidden md:block shrink-0">
+            <nav class="p-4 space-y-1 text-sm font-medium">
+                <a href="#" onclick="switchTab('home')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-brand-600 bg-brand-50 active"><i class="fa-solid fa-chart-pie w-5"></i> Trang chủ</a>
+                <a href="#" onclick="switchTab('ai-assistant')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100"><i class="fa-solid fa-robot text-purple-600 w-5"></i> Trợ lý AI GVCN</a>
+                <a href="#" onclick="switchTab('students')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100"><i class="fa-solid fa-users w-5"></i> Danh sách học sinh</a>
+                <a href="#" onclick="switchTab('attendance')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100"><i class="fa-solid fa-calendar-check w-5"></i> Chuyên cần</a>
+                <a href="#" onclick="switchTab('conduct')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100"><i class="fa-solid fa-award w-5"></i> Rèn luyện & Thi đua</a>
+                <a href="#" onclick="switchTab('reports')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100"><i class="fa-solid fa-file-invoice w-5"></i> Báo cáo tổng hợp</a>
+                <a href="#" onclick="switchTab('accounts')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 admin-only"><i class="fa-solid fa-user-shield w-5"></i> Tài khoản & Phân quyền</a>
+                <a href="#" onclick="switchTab('backup')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 admin-only"><i class="fa-solid fa-database w-5"></i> Sao lưu & In ấn</a>
+                <a href="#" onclick="switchTab('settings')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100"><i class="fa-solid fa-gear w-5"></i> Cài đặt & Năm học</a>
+            </nav>
+        </aside>
+
+        <!-- CONTENT AREA -->
+        <main class="flex-1 p-4 md:p-6 overflow-y-auto">
+            
+            <!-- CONFIG WARNING IF NOT SET -->
+            <div id="supabase-alert" class="bg-amber-50 border-l-4 border-amber-500 p-4 mb-4 rounded-r shadow-sm">
+                <div class="flex items-center">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-600 text-xl mr-3"></i>
+                    <div>
+                        <p class="text-sm font-bold text-amber-800">Cấu hình Supabase</p>
+                        <p class="text-xs text-amber-700">Vui lòng cập nhật <code class="bg-amber-200 px-1 rounded">SUPABASE_URL</code> và <code class="bg-amber-200 px-1 rounded">SUPABASE_KEY</code> trong file HTML để bắt đầu kết nối CSDL.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 1: TRANG CHỦ -->
+            <section id="tab-home" class="tab-content space-y-6">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center space-x-3">
+                        <div class="p-3 bg-blue-100 text-blue-600 rounded-lg"><i class="fa-solid fa-user-graduate text-xl"></i></div>
+                        <div>
+                            <p class="text-xs text-gray-500">Sĩ số lớp</p>
+                            <h3 class="text-xl font-bold text-gray-800" id="stat-total-students">0</h3>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center space-x-3">
+                        <div class="p-3 bg-emerald-100 text-emerald-600 rounded-lg"><i class="fa-solid fa-user-check text-xl"></i></div>
+                        <div>
+                            <p class="text-xs text-gray-500">Có mặt hôm nay</p>
+                            <h3 class="text-xl font-bold text-gray-800" id="stat-present-today">0</h3>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center space-x-3">
+                        <div class="p-3 bg-rose-100 text-rose-600 rounded-lg"><i class="fa-solid fa-user-xmark text-xl"></i></div>
+                        <div>
+                            <p class="text-xs text-gray-500">Vắng hôm nay</p>
+                            <h3 class="text-xl font-bold text-gray-800" id="stat-absent-today">0</h3>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center space-x-3">
+                        <div class="p-3 bg-amber-100 text-amber-600 rounded-lg"><i class="fa-solid fa-star text-xl"></i></div>
+                        <div>
+                            <p class="text-xs text-gray-500">Điểm thi đua TB</p>
+                            <h3 class="text-xl font-bold text-gray-800" id="stat-avg-points">100</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thông báo nhanh / Bảng tin -->
+                <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-bullhorn text-brand-500"></i> Bảng Tin Lớp Chủ Nhiệm
+                    </h3>
+                    <p class="text-sm text-gray-600">Chào mừng thầy/cô đến với ứng dụng ClassManager Pro. Hãy chọn Năm học và Lớp tại tab <span class="font-semibold text-brand-600 cursor-pointer" onclick="switchTab('settings')">Cài đặt</span> để bắt đầu quản lý.</p>
+                </div>
+            </section>
+
+            <!-- TAB 2: TRỢ LÝ AI -->
+            <section id="tab-ai-assistant" class="tab-content hidden space-y-4">
+                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="p-3 bg-purple-100 text-purple-600 rounded-lg"><i class="fa-solid fa-robot text-2xl"></i></div>
+                        <div>
+                            <h3 class="font-bold text-lg text-gray-800">Trợ Lý AI Chủ Nhiệm</h3>
+                            <p class="text-xs text-gray-500">Hỗ trợ tự động soạn tin nhắn phụ huynh & viết nhận xét rèn luyện học sinh</p>
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <label class="block text-sm font-medium text-gray-700">Chọn nhiệm vụ AI:</label>
+                        <select id="ai-task-type" class="w-full p-2.5 border border-gray-300 rounded-lg text-sm">
+                            <option value="parent-msg">Soạn tin nhắn thông báo cho Phụ huynh (vắng mặt/vi phạm)</option>
+                            <option value="conduct-review">Gợi ý nhận xét Hạnh kiểm/Rèn luyện cuối HK</option>
+                            <option value="advice">Tư vấn phương pháp quản lý học sinh cá biệt</option>
+                        </select>
+                        <textarea id="ai-input-context" rows="3" class="w-full p-3 border border-gray-300 rounded-lg text-sm" placeholder="Nhập tên học sinh, lỗi vi phạm hoặc chi tiết yêu cầu..."></textarea>
+                        <button onclick="generateAIResponse()" class="w-full md:w-auto px-5 py-2.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 shadow-sm">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Tạo nội dung AI
+                        </button>
+                    </div>
+                </div>
+
+                <div id="ai-result-box" class="hidden bg-purple-50 border border-purple-200 p-4 rounded-xl text-sm text-purple-900 space-y-2">
+                    <p class="font-bold flex items-center gap-2"><i class="fa-solid fa-comment-dots"></i> Kết quả gợi ý từ AI:</p>
+                    <div id="ai-result-content" class="bg-white p-3 rounded border border-purple-100 whitespace-pre-line font-mono text-xs md:text-sm"></div>
+                </div>
+            </section>
+
+            <!-- TAB 3: DANH SÁCH HỌC SINH -->
+            <section id="tab-students" class="tab-content hidden space-y-4">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                    <h2 class="text-lg font-bold text-gray-800">Danh Sách Học Sinh</h2>
+                    <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                        <button onclick="downloadExcelTemplate()" class="px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700">
+                            <i class="fa-solid fa-file-excel mr-1"></i> File mẫu Excel
+                        </button>
+                        <label class="px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 cursor-pointer">
+                            <i class="fa-solid fa-file-import mr-1"></i> Upload Excel
+                            <input type="file" id="excel-file-input" class="hidden" accept=".xlsx, .xls" onchange="importExcelStudents(event)">
+                        </label>
+                        <button onclick="openAddStudentModal()" class="px-3 py-2 bg-brand-600 text-white rounded-lg text-xs font-semibold hover:bg-brand-700 admin-only">
+                            <i class="fa-solid fa-plus mr-1"></i> Thêm HS
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3">STT</th>
+                                <th class="px-4 py-3">Mã HS</th>
+                                <th class="px-4 py-3">Họ và Tên</th>
+                                <th class="px-4 py-3">Giới tính</th>
+                                <th class="px-4 py-3">Ngày sinh</th>
+                                <th class="px-4 py-3">SĐT Phụ huynh</th>
+                                <th class="px-4 py-3 text-center">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="student-list-tbody">
+                            <tr><td colspan="7" class="text-center py-6 text-gray-400">Đang tải dữ liệu học sinh...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- TAB 4: CHUYÊN CẦN -->
+            <section id="tab-attendance" class="tab-content hidden space-y-4">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 bg-white p-4 rounded-xl border border-gray-100">
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-800">Điểm Danh Chuyên Cần</h2>
+                        <p class="text-xs text-gray-500">Ghi nhận vắng/muộn theo từng ngày</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs font-medium">Ngày:</label>
+                        <input type="date" id="attendance-date" class="p-2 border rounded-lg text-xs font-semibold" onchange="loadAttendanceData()">
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3">Họ và Tên</th>
+                                <th class="px-4 py-3 text-center">Có mặt</th>
+                                <th class="px-4 py-3 text-center">Có phép (-2p)</th>
+                                <th class="px-4 py-3 text-center">Không phép (-10p)</th>
+                                <th class="px-4 py-3 text-center">Đi muộn (-3p)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendance-tbody">
+                            <!-- Render bằng JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <button onclick="saveAttendance()" class="w-full py-3 bg-brand-600 text-white rounded-xl font-bold shadow hover:bg-brand-700 admin-only">
+                    <i class="fa-solid fa-floppy-disk mr-2"></i> Lưu Điểm Danh Hôm Nay
+                </button>
+            </section>
+
+            <!-- TAB 5: RÈN LUYỆN & THI ĐỦA -->
+            <section id="tab-conduct" class="tab-content hidden space-y-4">
+                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-3">
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <i class="fa-solid fa-gavel text-brand-600"></i> Chấm Điểm Rèn Luyện & Thi Đua
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Chọn Học Sinh:</label>
+                            <select id="conduct-student-select" class="w-full p-2 border rounded-lg text-xs"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Loại ghi nhận:</label>
+                            <select id="conduct-type-select" onchange="updateConductCategories()" class="w-full p-2 border rounded-lg text-xs">
+                                <option value="violation">Trừ điểm vi phạm</option>
+                                <option value="reward">Cộng điểm khen thưởng</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Hành vi / Nội dung quy định:</label>
+                            <select id="conduct-category-select" onchange="autoFillPoints()" class="w-full p-2 border rounded-lg text-xs"></select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Số điểm (+/-):</label>
+                            <input type="number" id="conduct-points-input" class="w-full p-2 border rounded-lg text-xs font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Học kỳ:</label>
+                            <select id="conduct-term-select" class="w-full p-2 border rounded-lg text-xs">
+                                <option value="HK1">Học Kỳ 1</option>
+                                <option value="HK2">Học Kỳ 2</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Tuần thứ:</label>
+                            <input type="number" id="conduct-week-input" value="1" min="1" max="52" class="w-full p-2 border rounded-lg text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Tháng:</label>
+                            <input type="number" id="conduct-month-input" value="9" min="1" max="12" class="w-full p-2 border rounded-lg text-xs">
+                        </div>
+                    </div>
+
+                    <button onclick="addConductLog()" class="w-full py-2.5 bg-brand-600 text-white rounded-lg text-xs font-bold hover:bg-brand-700 admin-only">
+                        <i class="fa-solid fa-plus-circle mr-1"></i> Ghi Nhận Điểm Thi Đua
+                    </button>
+                </div>
+
+                <!-- Bảng xếp hạng / Tổng hợp điểm -->
+                <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+                    <div class="p-4 border-b flex justify-between items-center">
+                        <h3 class="font-bold text-gray-800 text-sm">Bảng Tổng Điểm Rèn Luyện (Gốc: 100 điểm)</h3>
+                    </div>
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3">Học sinh</th>
+                                <th class="px-4 py-3 text-center">Tổng điểm cộng</th>
+                                <th class="px-4 py-3 text-center">Tổng điểm trừ</th>
+                                <th class="px-4 py-3 text-center">Điểm Còn Lại</th>
+                                <th class="px-4 py-3 text-center">Xếp loại rèn luyện</th>
+                            </tr>
+                        </thead>
+                        <tbody id="conduct-summary-tbody">
+                            <!-- Render bằng JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- TAB 6: BÁO CÁO TỔNG HỢP -->
+            <section id="tab-reports" class="tab-content hidden space-y-4">
+                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
+                    <h2 class="text-lg font-bold text-gray-800">Báo Cáo Tổng Hợp Thi Đua</h2>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="exportFullReportExcel()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700">
+                            <i class="fa-solid fa-file-excel mr-1"></i> Xuất Báo Cáo Excel
+                        </button>
+                    </div>
+                    <div class="border rounded-lg p-4 bg-gray-50 text-xs text-gray-600 space-y-2">
+                        <p class="font-semibold text-gray-800">Quy tắc Xếp loại Hạnh kiểm/Rèn luyện:</p>
+                        <p>• <b>Tốt</b>: Điểm tổng kết &ge; 90 điểm và không vi phạm lỗi nghiêm trọng.</p>
+                        <p>• <b>Khá</b>: Điểm tổng kết từ 70 đến 89 điểm.</p>
+                        <p>• <b>Trung bình/Đạt</b>: Điểm tổng kết từ 50 đến 69 điểm.</p>
+                        <p>• <b>Yếu/Chưa đạt</b>: Điểm tổng kết &lt; 50 điểm.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 7: TÀI KHOẢN & PHÂN QUYỀN -->
+            <section id="tab-accounts" class="tab-content hidden space-y-4">
+                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
+                    <h2 class="text-lg font-bold text-gray-800">Quản Lý Tài Khoản & Phân Quyền</h2>
+                    <p class="text-xs text-gray-500">Tạo tài khoản cho Cán sự lớp (Lớp trưởng, Lớp phó, Đội cờ đỏ) để hỗ trợ chấm điểm.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <input type="text" id="new-user-fullname" placeholder="Họ và tên cán bộ" class="p-2 border rounded text-xs">
+                        <input type="text" id="new-user-username" placeholder="Tên đăng nhập" class="p-2 border rounded text-xs">
+                        <input type="password" id="new-user-password" placeholder="Mật khẩu" class="p-2 border rounded text-xs">
+                    </div>
+                    <button onclick="createNewAccount()" class="px-4 py-2 bg-brand-600 text-white rounded-lg text-xs font-bold hover:bg-brand-700">
+                        <i class="fa-solid fa-user-plus mr-1"></i> Tạo Tài Khoản Cán Sự
+                    </button>
+                </div>
+            </section>
+
+            <!-- TAB 8: SAO LƯU & RESET -->
+            <section id="tab-backup" class="tab-content hidden space-y-4">
+                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
+                    <h2 class="text-lg font-bold text-gray-800 text-rose-600">Sao Lưu & Quản Lý Dữ Liệu</h2>
+                    <p class="text-xs text-gray-500">Thực hiện xóa/reset dữ liệu khi bắt đầu năm học mới.</p>
+                    
+                    <div class="pt-4 border-t">
+                        <button onclick="resetClassData()" class="px-4 py-2 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700">
+                            <i class="fa-solid fa-trash-arrow-up mr-1"></i> Reset Toàn Bộ Dữ Liệu Lớp
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 9: CÀI ĐẶT & NĂM HỌC -->
+            <section id="tab-settings" class="tab-content hidden space-y-4">
+                <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
+                    <h2 class="text-lg font-bold text-gray-800">Cài Đặt Năm Học & Lớp Học</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <label class="block text-xs font-bold text-gray-700">Tạo Năm Học Mới:</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="setting-year-input" placeholder="VD: 2025-2026" class="flex-1 p-2 border rounded text-xs">
+                                <button onclick="createAcademicYear()" class="px-3 py-2 bg-brand-600 text-white rounded text-xs font-bold">Thêm</button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="block text-xs font-bold text-gray-700">Tạo Lớp Học Mới:</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="setting-class-input" placeholder="VD: 10A1" class="flex-1 p-2 border rounded text-xs">
+                                <button onclick="createClass()" class="px-3 py-2 bg-brand-600 text-white rounded text-xs font-bold">Thêm</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MOBILE BOTTOM NAVIGATION -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around py-2 px-1 text-[10px] z-40">
+        <button onclick="switchTab('home')" class="flex flex-col items-center text-brand-600"><i class="fa-solid fa-chart-pie text-base"></i>Trang chủ</button>
+        <button onclick="switchTab('students')" class="flex flex-col items-center text-gray-500"><i class="fa-solid fa-users text-base"></i>Học sinh</button>
+        <button onclick="switchTab('attendance')" class="flex flex-col items-center text-gray-500"><i class="fa-solid fa-calendar-check text-base"></i>Điểm danh</button>
+        <button onclick="switchTab('conduct')" class="flex flex-col items-center text-gray-500"><i class="fa-solid fa-award text-base"></i>Thi đua</button>
+        <button onclick="switchTab('ai-assistant')" class="flex flex-col items-center text-purple-600"><i class="fa-solid fa-robot text-base"></i>Trợ lý AI</button>
+    </nav>
+
+    <!-- MODAL DĂNG NHẬP -->
+    <div id="login-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-xl">
+            <h3 class="text-lg font-bold text-gray-800 text-center">Đăng Nhập Quản Lý</h3>
+            <div class="space-y-3">
+                <input type="text" id="login-username" placeholder="Tên đăng nhập" class="w-full p-2.5 border rounded-lg text-sm">
+                <input type="password" id="login-password" placeholder="Mật khẩu" class="w-full p-2.5 border rounded-lg text-sm">
+            </div>
+            <div class="flex gap-2">
+                <button onclick="closeLoginModal()" class="w-1/2 py-2 bg-gray-200 text-gray-700 rounded-lg text-xs font-bold">Hủy</button>
+                <button onclick="handleLogin()" class="w-1/2 py-2 bg-brand-600 text-white rounded-lg text-xs font-bold">Đăng nhập</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT CORE LOGIC -->
+    <script>
+       const SUPABASE_URL = 'https://zwnonbdejjazhjgxnjye.supabase.co';
+
+const SUPABASE_KEY = 'url: https://zwnonbdejjazhjgxnjye.supabase.co
+key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3bm9uYmRlamphemhqZ3huanllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NjcyMTksImV4cCI6MjEwMjQ0MzIxOX0.Y8tifiEZm7unYSLvHHKKiKU-FO6jV8DRKvQ22ZcOkAM';
+
+let supabase = null;
+
+try {
+    supabase = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
+
+    document.getElementById('supabase-alert').classList.add('hidden');
+
+    console.log('✅ Đã kết nối Supabase thành công');
+} catch (error) {
+    console.error('❌ Lỗi kết nối Supabase:', error);
+    alert('Không thể kết nối Supabase: ' + error.message);
+}
+
+        // State quản lý ứng dụng
+        let currentUser = { role: 'guest', username: 'Guest' };
+        let currentClassId = null;
+        let studentsList = [];
+
+        // Quy định trừ điểm vi phạm & cộng điểm khen thưởng theo quy định chuẩn
+        const VIOLATIONS = [
+            { cat: 'Nghỉ học có phép', points: -2 },
+            { cat: 'Nghỉ học không phép', points: -10 },
+            { cat: 'Đi học muộn', points: -3 },
+            { cat: 'Bỏ tiết / Trốn tiết', points: -10 },
+            { cat: 'Không đeo thẻ học sinh', points: -2 },
+            { cat: 'Đi dép lê (không quai hậu)', points: -2 },
+            { cat: 'Không mặc đúng đồng phục', points: -3 },
+            { cat: 'Mặc quần rách, áo không cổ', points: -5 },
+            { cat: 'Không học bài / Không làm bài', points: -5 },
+            { cat: 'Mất trật tự trong giờ học', points: -3 },
+            { cat: 'Sử dụng điện thoại không phép', points: -5 },
+            { cat: 'Vi phạm an toàn giao thông', points: -15 }
+        ];
+
+        const REWARDS = [
+            { cat: 'Thành tích đột xuất (HSG/Thể thao)', points: 10 },
+            { cat: 'Làm việc tốt / Nhặt được của rơi', points: 5 },
+            { cat: 'Tích cực hoạt động tập thể / Phong trào', points: 5 },
+            { cat: 'Đạt điểm 9, 10 trong giờ học', points: 2 },
+            { cat: 'Tuần học tốt (không vi phạm)', points: 5 }
+        ];
+
+        // --- 2. KHỞI TẠO & ĐIỀU HƯỚNG ---
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('attendance-date').valueAsDate = new Date();
+            updateConductCategories();
+            loadInitialData();
+            applyPermissions();
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            const target = document.getElementById(`tab-${tabId}`);
+            if(target) target.classList.remove('hidden');
+        }
+
+        function applyPermissions() {
+            const adminElements = document.querySelectorAll('.admin-only');
+            if (currentUser.role === 'guest') {
+                adminElements.forEach(el => el.classList.add('hidden'));
+                document.getElementById('user-role-text').innerText = 'Khách (Guest)';
+                document.getElementById('auth-btn-text').innerText = 'Đăng nhập';
+            } else {
+                adminElements.forEach(el => el.classList.remove('hidden'));
+                document.getElementById('user-role-text').innerText = `${currentUser.username} (${currentUser.role.toUpperCase()})`;
+                document.getElementById('auth-btn-text').innerText = 'Đăng xuất';
+            }
+        }
+
+        // --- 3. QUẢN LÝ DỮ LIỆU CƠ BẢN ---
+        async function loadInitialData() {
+            if(!supabase) return;
+            // Tải danh sách học sinh
+            const { data, error } = await supabase.from('students').select('*');
+            if(!error && data) {
+                studentsList = data;
+                renderStudentsTable();
+                populateStudentSelects();
+            }
+        }
+
+        function renderStudentsTable() {
+            const tbody = document.getElementById('student-list-tbody');
+            if(studentsList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-gray-400">Chưa có học sinh nào.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = studentsList.map((s, idx) => `
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="px-4 py-3">${idx + 1}</td>
+                    <td class="px-4 py-3 font-semibold text-brand-600">${s.student_code}</td>
+                    <td class="px-4 py-3 font-medium text-gray-800">${s.full_name}</td>
+                    <td class="px-4 py-3">${s.gender || 'Nam'}</td>
+                    <td class="px-4 py-3">${s.dob || '-'}</td>
+                    <td class="px-4 py-3">${s.parent_phone || '-'}</td>
+                    <td class="px-4 py-3 text-center">
+                        <button onclick="deleteStudent('${s.id}')" class="text-rose-600 hover:text-rose-800 admin-only"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('stat-total-students').innerText = studentsList.length;
+        }
+
+        function populateStudentSelects() {
+            const select = document.getElementById('conduct-student-select');
+            select.innerHTML = studentsList.map(s => `<option value="${s.id}">${s.student_code} - ${s.full_name}</option>`).join('');
+            
+            // Render giao diện điểm danh
+            const attTbody = document.getElementById('attendance-tbody');
+            attTbody.innerHTML = studentsList.map(s => `
+                <tr class="border-b">
+                    <td class="px-4 py-3 font-medium text-gray-800">${s.full_name}</td>
+                    <td class="px-4 py-3 text-center"><input type="radio" name="att_${s.id}" value="present" checked></td>
+                    <td class="px-4 py-3 text-center"><input type="radio" name="att_${s.id}" value="excused"></td>
+                    <td class="px-4 py-3 text-center"><input type="radio" name="att_${s.id}" value="unexcused"></td>
+                    <td class="px-4 py-3 text-center"><input type="radio" name="att_${s.id}" value="late"></td>
+                </tr>
+            `).join('');
+        }
+
+        // --- 4. EXCEL IMPORT & TEMPLATE ---
+        function downloadExcelTemplate() {
+            const data = [
+                ["Mã HS", "Họ và Tên", "Giới tính", "Ngày sinh (YYYY-MM-DD)", "SĐT Phụ huynh"],
+                ["HS001", "Nguyễn Văn A", "Nam", "2008-05-15", "0912345678"],
+                ["HS002", "Trần Thị B", "Nữ", "2008-08-20", "0987654321"]
+            ];
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Mau_Danh_Sach_HS");
+            XLSX.writeFile(wb, "Mau_Danh_Sach_Hoc_Sinh.xlsx");
+        }
+
+        async function importExcelStudents(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (evt) => {
+                const bstr = evt.target.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+                
+                // Bỏ dòng tiêu đề (Header)
+                const rows = data.slice(1);
+                const newStudents = rows.filter(r => r.length >= 2).map(r => ({
+                    student_code: r[0],
+                    full_name: r[1],
+                    gender: r[2] || 'Nam',
+                    dob: r[3] || null,
+                    parent_phone: r[4] ? String(r[4]) : ''
+                }));
+
+                if (supabase && newStudents.length > 0) {
+                    const { error } = await supabase.from('students').insert(newStudents);
+                    if (!error) {
+                        alert(`Đã thêm thành công ${newStudents.length} học sinh từ Excel!`);
+                        loadInitialData();
+                    } else {
+                        alert("Lỗi khi tải dữ liệu lên Supabase: " + error.message);
+                    }
+                }
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        // --- 5. ĐIỂM THI ĐỦA & RÈN LUYỆN LOGIC ---
+        function updateConductCategories() {
+            const type = document.getElementById('conduct-type-select').value;
+            const catSelect = document.getElementById('conduct-category-select');
+            const list = type === 'violation' ? VIOLATIONS : REWARDS;
+            
+            catSelect.innerHTML = list.map(item => `<option value="${item.cat}">${item.cat} (${item.points > 0 ? '+' : ''}${item.points}đ)</option>`).join('');
+            autoFillPoints();
+        }
+
+        function autoFillPoints() {
+            const type = document.getElementById('conduct-type-select').value;
+            const catName = document.getElementById('conduct-category-select').value;
+            const list = type === 'violation' ? VIOLATIONS : REWARDS;
+            const found = list.find(i => i.cat === catName);
+            if(found) {
+                document.getElementById('conduct-points-input').value = found.points;
+            }
+        }
+
+        async function addConductLog() {
+            if(!supabase) { alert('Vui lòng kết nối Supabase.'); return; }
+            const studentId = document.getElementById('conduct-student-select').value;
+            const type = document.getElementById('conduct-type-select').value;
+            const category = document.getElementById('conduct-category-select').value;
+            const points = parseInt(document.getElementById('conduct-points-input').value);
+            const term = document.getElementById('conduct-term-select').value;
+            const weekNum = parseInt(document.getElementById('conduct-week-input').value);
+            const monthNum = parseInt(document.getElementById('conduct-month-input').value);
+
+            const { error } = await supabase.from('conduct_logs').insert([{
+                student_id: studentId,
+                type: type,
+                category: category,
+                points: points,
+                term: term,
+                week_num: weekNum,
+                month_num: monthNum,
+                created_by: currentUser.username
+            }]);
+
+            if(!error) {
+                alert('Đã lưu điểm thi đua thành công!');
+            } else {
+                alert('Có lỗi xảy ra: ' + error.message);
+            }
+        }
+
+        // --- 6. AI ASSISTANT SIMULATION ---
+        function generateAIResponse() {
+            const task = document.getElementById('ai-task-type').value;
+            const context = document.getElementById('ai-input-context').value;
+            const resultBox = document.getElementById('ai-result-box');
+            const resultContent = document.getElementById('ai-result-content');
+
+            let output = '';
+            if (task === 'parent-msg') {
+                output = `Kính gửi Phụ huynh em ${context || '[Tên HS]'},\nNhiệm vụ chủ nhiệm xin thông báo: Hôm nay em có vi phạm nền nếp lớp học (Lý do: ${context || 'Đi muộn/vắng mặt'}). Rất mong Phụ huynh phối hợp nhắc nhở em để đảm bảo kết quả rèn luyện tốt nhất.\nTrân trọng!`;
+            } else if (task === 'conduct-review') {
+                output = `Gợi ý Nhận xét Hạnh kiểm:\n- Ưu điểm: Tích cực tham gia phong trào tập thể, hòa đồng với bạn bè.\n- Hạn chế: Còn vi phạm nền nếp (chi tiết: ${context || 'cần tập trung trong giờ học'}).\n- Đánh giá chung: Đạt Hạnh kiểm KHÁ/TỐT.`;
+            } else {
+                output = `Phương pháp tư vấn đối với trường hợp ${context || 'học sinh'}:\n1. Gặp riêng trao đổi nhẹ nhàng, tìm hiểu nguyên nhân gốc rễ.\n2. Phối hợp chặt chẽ với Cán bộ lớp & Đội cờ đỏ để theo dõi sát sao.\n3. Giao nhiệm vụ cụ thể trong lớp để tăng tính trách nhiệm.`;
+            }
+
+            resultContent.innerText = output;
+            resultBox.classList.remove('hidden');
+        }
+
+        // --- 7. AUTHENTICATION MODAL ---
+        function openLoginModal() {
+            if(currentUser.role !== 'guest') {
+                currentUser = { role: 'guest', username: 'Guest' };
+                applyPermissions();
+                alert('Đã đăng xuất khỏi tài khoản.');
+                return;
+            }
+            document.getElementById('login-modal').classList.remove('hidden');
+            document.getElementById('login-modal').classList.add('flex');
+        }
+
+        function closeLoginModal() {
+            document.getElementById('login-modal').classList.add('hidden');
+            document.getElementById('login-modal').classList.remove('flex');
+        }
+
+        function handleLogin() {
+            const u = document.getElementById('login-username').value;
+            const p = document.getElementById('login-password').value;
+            if(u === 'admin' && p === '123456') {
+                currentUser = { role: 'gvcn', username: 'Thầy Chủ Nhiệm' };
+                applyPermissions();
+                closeLoginModal();
+                alert('Đăng nhập thành công với quyền GVCN!');
+            } else {
+                alert('Tên đăng nhập hoặc mật khẩu không chính xác! (Mặc định: admin / 123456)');
+            }
+        }
+    </script>
+</body>
+</html>
