@@ -12,6 +12,12 @@
 .hidden{display:none!important}
 html,body{max-width:100%;overflow-x:hidden}
 .mobile-tool-btn{white-space:nowrap;flex:0 0 auto}
+#desktop-sidebar{display:none}
+@media (min-width:768px){#desktop-sidebar{display:block!important}}
+@media (max-width:767px){#desktop-sidebar{display:none!important}}
+.nav:hover,.nav.active{background:#e0f2fe;color:#0369a1;font-weight:700}
+#desktop-sidebar{min-height:calc(100vh - 70px);position:sticky;top:70px;align-self:flex-start}
+.auth-register-btn{border:1px solid rgba(255,255,255,.45)}
 </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen">
@@ -21,6 +27,7 @@ html,body{max-width:100%;overflow-x:hidden}
   <div><h1 class="font-bold text-lg">🎓 ClassManager Pro</h1><p id="current-class-display" class="text-xs hidden"></p></div>
   <div class="flex gap-2 items-center">
    <span id="user-role-text" class="text-xs bg-sky-800 px-3 py-1 rounded-full">Khách (Guest)</span>
+   <button id="register-btn" onclick="openRegisterModal()" class="auth-register-btn text-white px-3 py-1 rounded-lg text-sm font-semibold">Đăng ký</button>
    <button id="auth-btn" onclick="openLoginModal()" class="bg-white text-sky-700 px-3 py-1 rounded-lg text-sm font-semibold"><span id="auth-btn-text">Đăng nhập</span></button>
   </div>
  </div>
@@ -34,8 +41,9 @@ html,body{max-width:100%;overflow-x:hidden}
 </div>
 
 <div class="max-w-7xl mx-auto flex min-h-[calc(100vh-70px)]">
-<aside class="w-64 bg-white border-r hidden md:block">
+<aside id="desktop-sidebar" class="w-64 shrink-0 bg-white border-r">
  <nav class="p-4 space-y-1 text-sm">
+  <div class="px-3 py-2 text-xs font-bold tracking-wider text-gray-400">ĐIỀU HƯỚNG</div>
   <button onclick="switchTab('home')" class="nav w-full text-left p-3 rounded">🏠 Trang chủ</button>
   <button onclick="switchTab('students')" class="nav w-full text-left p-3 rounded">👨‍🎓 Danh sách học sinh</button>
   <button onclick="switchTab('attendance')" class="nav w-full text-left p-3 rounded">📅 Chuyên cần</button>
@@ -123,7 +131,13 @@ html,body{max-width:100%;overflow-x:hidden}
 </section>
 
 <section id="tab-reports" class="tab hidden"><div class="bg-white p-5 rounded-xl shadow"><h2 class="font-bold">📊 Báo cáo</h2><button onclick="exportFullReportExcel()" class="mt-3 px-4 py-2 bg-emerald-600 text-white rounded">Xuất Excel</button></div></section>
-<section id="tab-accounts" class="tab hidden"><div class="bg-white p-5 rounded-xl shadow"><h2 class="font-bold">👤 Tài khoản</h2><p class="text-sm text-gray-500 mt-2">Phiên bản này giữ đăng nhập quản trị cục bộ để tránh ảnh hưởng cấu trúc CSDL hiện có.</p></div></section>
+<section id="tab-accounts" class="tab hidden">
+ <div class="bg-white p-5 rounded-xl shadow">
+  <h2 class="font-bold">👤 Quản lý tài khoản</h2>
+  <p class="text-sm text-gray-500 mt-2">Danh sách yêu cầu đăng ký giáo viên được lưu trên thiết bị trong phiên bản demo.</p>
+  <div id="registration-list" class="mt-4 space-y-2"></div>
+ </div>
+</section>
 <section id="tab-backup" class="tab hidden"><div class="bg-white p-5 rounded-xl shadow"><h2 class="font-bold text-rose-600">💾 Sao lưu</h2><button onclick="resetClassData()" class="mt-3 px-4 py-2 bg-rose-600 text-white rounded">Reset dữ liệu lớp</button></div></section>
 </main>
 </div>
@@ -137,10 +151,61 @@ html,body{max-width:100%;overflow-x:hidden}
  </div>
 </div>
 
+<div id="register-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[60] p-4">
+ <div class="bg-white p-6 rounded-xl w-full max-w-md space-y-3">
+  <div class="flex justify-between items-center"><h3 class="font-bold text-lg">Đăng ký tài khoản giáo viên</h3><button onclick="closeRegisterModal()" class="text-gray-500">✕</button></div>
+  <p class="text-sm text-gray-500">Đăng ký bằng Email cá nhân hoặc số điện thoại. Sau khi đăng ký, tài khoản ở trạng thái chờ Admin cấp quyền.</p>
+  <input id="register-name" class="w-full p-3 border rounded-lg" placeholder="Họ và tên">
+  <input id="register-contact" class="w-full p-3 border rounded-lg" placeholder="Email hoặc số điện thoại">
+  <input id="register-password" type="password" class="w-full p-3 border rounded-lg" placeholder="Mật khẩu">
+  <input id="register-confirm-password" type="password" class="w-full p-3 border rounded-lg" placeholder="Nhập lại mật khẩu">
+  <div class="flex gap-2"><button onclick="closeRegisterModal()" class="w-1/2 p-3 bg-gray-200 rounded-lg">Hủy</button><button onclick="submitRegistration()" class="w-1/2 p-3 bg-indigo-600 text-white rounded-lg font-semibold">Gửi đăng ký</button></div>
+ </div>
+</div>
+
 <script>
 const SUPABASE_URL='https://zwnonbdejjazhjgxnjye.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3bm9uYmRlamphemhqZ3huanllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NjcyMTksImV4cCI6MjEwMjQ0MzIxOX0.Y8tifiEZm7unYSLvHHKKiKU-FO6jV8DRKvQ22ZcOkAM';
 let db=null,currentUser={role:'guest',username:'Guest'},currentClassId=null,currentYearId=null,academicYearsList=[],classesList=[],studentsList=[];
+const REGISTRATION_KEY='classmanager_teacher_registrations_v1';
+
+function getRegistrations(){
+ try{return JSON.parse(localStorage.getItem(REGISTRATION_KEY)||'[]')}catch(e){return []}
+}
+function saveRegistrations(list){localStorage.setItem(REGISTRATION_KEY,JSON.stringify(list))}
+function openRegisterModal(){
+ const m=document.getElementById('register-modal');
+ m.classList.remove('hidden');m.classList.add('flex');
+}
+function closeRegisterModal(){
+ const m=document.getElementById('register-modal');
+ m.classList.add('hidden');m.classList.remove('flex');
+}
+function submitRegistration(){
+ const name=document.getElementById('register-name').value.trim();
+ const contact=document.getElementById('register-contact').value.trim();
+ const password=document.getElementById('register-password').value;
+ const confirmPassword=document.getElementById('register-confirm-password').value;
+ if(!name||!contact||!password||!confirmPassword)return alert('Vui lòng nhập đầy đủ thông tin.');
+ if(password!==confirmPassword)return alert('Mật khẩu xác nhận chưa khớp.');
+ const list=getRegistrations();
+ if(list.some(x=>x.contact.toLowerCase()===contact.toLowerCase()))return alert('Email/SĐT này đã đăng ký.');
+ list.push({id:Date.now().toString(),name,contact,password,status:'pending',createdAt:new Date().toLocaleString('vi-VN')});
+ saveRegistrations(list);
+ closeRegisterModal();
+ document.getElementById('register-name').value='';
+ document.getElementById('register-contact').value='';
+ document.getElementById('register-password').value='';
+ document.getElementById('register-confirm-password').value='';
+ renderRegistrations();
+ alert('Đăng ký thành công. Tài khoản đang chờ Admin cấp quyền.');
+}
+function renderRegistrations(){
+ const box=document.getElementById('registration-list');
+ if(!box)return;
+ const list=getRegistrations();
+ box.innerHTML=list.length?list.map(x=>`<div class="border rounded-xl p-3 flex flex-wrap gap-2 justify-between items-center"><div><b>${esc(x.name)}</b><div class="text-sm text-gray-500">${esc(x.contact)} · ${esc(x.createdAt)}</div></div><span class="px-2 py-1 rounded-full text-xs ${x.status==='approved'?'bg-emerald-100 text-emerald-700':'bg-amber-100 text-amber-700'}">${x.status==='approved'?'Đã cấp quyền':'Chờ cấp quyền'}</span></div>`).join(''):'<div class="text-sm text-gray-400">Chưa có yêu cầu đăng ký nào trên thiết bị này.</div>';
+}
 
 function initSupabase(){
  try{
@@ -151,15 +216,25 @@ function initSupabase(){
   }
  }catch(e){console.error(e)}
 }
-function switchTab(id){document.querySelectorAll('.tab').forEach(x=>x.classList.add('hidden'));document.getElementById('tab-'+id)?.classList.remove('hidden');}
+function switchTab(id){
+ document.querySelectorAll('.tab').forEach(x=>x.classList.add('hidden'));
+ document.getElementById('tab-'+id)?.classList.remove('hidden');
+ document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x.getAttribute('onclick')===`switchTab('${id}')`));
+ const side=document.getElementById('desktop-sidebar');
+ if(side && window.innerWidth>=768)side.style.display='block';
+ if(id==='accounts')renderRegistrations();
+}
 function applyPermissions(){
  const isGuest=currentUser.role==='guest';
  document.querySelectorAll('.admin-only').forEach(x=>x.classList.toggle('hidden',isGuest));
  document.querySelectorAll('.nav').forEach(x=>x.classList.remove('hidden'));
  const role=document.getElementById('user-role-text');
  const auth=document.getElementById('auth-btn-text');
- if(role)role.textContent=isGuest?'Khách (Guest)':currentUser.username;
+ const registerBtn=document.getElementById('register-btn');
+ if(role)role.textContent=isGuest?'Khách (chỉ xem)':currentUser.username;
  if(auth)auth.textContent=isGuest?'Đăng nhập':'Đăng xuất';
+ if(registerBtn)registerBtn.classList.toggle('hidden',!isGuest);
+ renderRegistrations();
 }
 async function loadAcademicYears(){
  if(!db)return;
@@ -378,7 +453,7 @@ async function openManagedClass(){
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 document.addEventListener('DOMContentLoaded',async()=>{
  document.getElementById('attendance-date').valueAsDate=new Date();
- initSupabase();applyPermissions();updateConductCategories();
+ initSupabase();applyPermissions();renderRegistrations();updateConductCategories();
  await loadAcademicYears();
  // Mặc định luôn ở trạng thái chưa chọn lớp; không hiển thị năm học/lớp trên header.
  document.getElementById('current-class-display').textContent='';
