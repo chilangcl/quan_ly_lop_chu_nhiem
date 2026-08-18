@@ -8,7 +8,11 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<style>.hidden{display:none!important}</style>
+<style>
+.hidden{display:none!important}
+html,body{max-width:100%;overflow-x:hidden}
+.mobile-tool-btn{white-space:nowrap;flex:0 0 auto}
+</style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen">
 
@@ -43,7 +47,21 @@
  </nav>
 </aside>
 
-<main class="flex-1 p-4 md:p-6">
+<!-- Thanh công cụ di động: luôn hiển thị để không bị mất chức năng sau khi đăng nhập -->
+<nav id="mobile-toolbar" class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t shadow-lg overflow-x-auto">
+ <div class="flex gap-1 p-2 min-w-max text-xs">
+  <button onclick="switchTab('home')" class="mobile-tool-btn px-3 py-2 rounded-lg">🏠 Trang chủ</button>
+  <button onclick="switchTab('students')" class="mobile-tool-btn px-3 py-2 rounded-lg">👨‍🎓 Học sinh</button>
+  <button onclick="switchTab('attendance')" class="mobile-tool-btn px-3 py-2 rounded-lg">📅 Kiểm diện</button>
+  <button onclick="switchTab('conduct')" class="mobile-tool-btn px-3 py-2 rounded-lg">🏆 Rèn luyện</button>
+  <button onclick="switchTab('reports')" class="mobile-tool-btn px-3 py-2 rounded-lg">📊 Báo cáo</button>
+  <button onclick="switchTab('accounts')" class="mobile-tool-btn admin-only px-3 py-2 rounded-lg">👤 Tài khoản</button>
+  <button onclick="switchTab('backup')" class="mobile-tool-btn admin-only px-3 py-2 rounded-lg">💾 Sao lưu</button>
+  <button onclick="switchTab('settings')" class="mobile-tool-btn px-3 py-2 rounded-lg">⚙️ Cài đặt</button>
+ </div>
+</nav>
+
+<main class="flex-1 p-4 md:p-6 pb-24 md:pb-6">
 <section id="tab-home" class="tab space-y-5">
  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
   <div class="bg-white p-4 rounded-xl shadow"><div class="text-xs text-gray-500">Sĩ số</div><b id="stat-total-students" class="text-2xl">0</b></div>
@@ -134,7 +152,15 @@ function initSupabase(){
  }catch(e){console.error(e)}
 }
 function switchTab(id){document.querySelectorAll('.tab').forEach(x=>x.classList.add('hidden'));document.getElementById('tab-'+id)?.classList.remove('hidden');}
-function applyPermissions(){document.querySelectorAll('.admin-only').forEach(x=>x.classList.toggle('hidden',currentUser.role==='guest'));document.getElementById('user-role-text').textContent=currentUser.role==='guest'?'Khách (Guest)':currentUser.username;document.getElementById('auth-btn-text').textContent=currentUser.role==='guest'?'Đăng nhập':'Đăng xuất';}
+function applyPermissions(){
+ const isGuest=currentUser.role==='guest';
+ document.querySelectorAll('.admin-only').forEach(x=>x.classList.toggle('hidden',isGuest));
+ document.querySelectorAll('.nav').forEach(x=>x.classList.remove('hidden'));
+ const role=document.getElementById('user-role-text');
+ const auth=document.getElementById('auth-btn-text');
+ if(role)role.textContent=isGuest?'Khách (Guest)':currentUser.username;
+ if(auth)auth.textContent=isGuest?'Đăng nhập':'Đăng xuất';
+}
 async function loadAcademicYears(){
  if(!db)return;
  const {data,error}=await db.from('academic_years').select('*').order('name',{ascending:false});
@@ -283,30 +309,67 @@ async function handleLogin(){
  const u=document.getElementById('login-username').value,p=document.getElementById('login-password').value;
  if(u==='admin'&&p==='123456'){
   currentUser={role:'gvcn',username:'Thầy Chủ Nhiệm'};
-  applyPermissions();closeLoginModal();
+  applyPermissions();
+  closeLoginModal();
+
+  // Hiển thị ngay giao diện quản lý và toàn bộ thanh công cụ.
   document.getElementById('guest-class-selector').classList.add('hidden');
+  const board=document.getElementById('class-home-board');
+  const boardText=document.getElementById('class-home-text');
+  if(board&&boardText){
+   boardText.textContent='Đã đăng nhập thành công. Đang kiểm tra lớp được gán cho tài khoản...';
+   board.classList.remove('hidden');
+  }
+  switchTab('home');
+
   await openManagedClass();
   alert('Đăng nhập thành công!');
  }else alert('Sai tài khoản hoặc mật khẩu. Mặc định: admin / 123456');
 }
 async function openManagedClass(){
- if(!db)return;
- // Tìm lớp do tài khoản giáo viên đang quản lý; ưu tiên năm học đang sử dụng.
+ const board=document.getElementById('class-home-board');
+ const boardText=document.getElementById('class-home-text');
+
+ if(!db){
+  currentClassId=null;currentYearId=null;
+  if(board&&boardText){
+   boardText.textContent='Chưa kết nối được dữ liệu lớp. Các chức năng quản lý vẫn hiển thị; vui lòng kiểm tra kết nối Supabase hoặc vào Cài đặt để thiết lập.';
+   board.classList.remove('hidden');
+  }
+  switchTab('home');
+  return;
+ }
+
+ // Chỉ mở lớp thực sự được gán cho tài khoản, không tự động mở lớp bất kỳ.
  const active=academicYearsList.find(x=>x.is_active);
  let query=db.from('classes').select('*').order('name');
- if(active) query=query.eq('academic_year_id',active.id);
+ if(active)query=query.eq('academic_year_id',active.id);
+
  const {data,error}=await query;
- if(error){console.error(error);return}
- const managed=(data||[]).filter(x=>(x.teacher_name||'')===currentUser.username);
- const fallback=(data||[]);
- const cls=managed[0] || (currentUser.username==='Thầy Chủ Nhiệm'?fallback[0]:null);
+ if(error){
+  console.error(error);
+  if(board&&boardText){
+   boardText.textContent='Không thể tải danh sách lớp. Bạn vẫn có thể sử dụng thanh công cụ; hãy kiểm tra cấu hình dữ liệu.';
+   board.classList.remove('hidden');
+  }
+  switchTab('home');
+  return;
+ }
+
+ const cls=(data||[]).find(x=>(x.teacher_name||'').trim()===String(currentUser.username||'').trim());
+
  if(!cls){
-  currentClassId=null; currentYearId=null;
+  currentClassId=null;currentYearId=null;
   document.getElementById('current-class-display').textContent='';
   document.getElementById('current-class-display').classList.add('hidden');
-  switchTab('settings');
-  return alert('Tài khoản chưa được gán lớp quản lý. Vui lòng vào Cài đặt để tạo hoặc chọn lớp.');
+  if(board&&boardText){
+   boardText.textContent='Tài khoản chưa được gán lớp quản lý. Bạn vẫn có đầy đủ thanh công cụ; vào Cài đặt để tạo hoặc thiết lập lớp của mình.';
+   board.classList.remove('hidden');
+  }
+  switchTab('home');
+  return;
  }
+
  currentYearId=cls.academic_year_id;
  await loadClasses(currentYearId);
  await selectClass(cls.id);
