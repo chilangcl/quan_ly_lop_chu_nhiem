@@ -14,7 +14,7 @@
 
 <header class="bg-sky-700 text-white shadow-md sticky top-0 z-40">
  <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-  <div><h1 class="font-bold text-lg">🎓 ClassManager Pro</h1><p id="current-class-display" class="text-xs">Chưa chọn lớp</p></div>
+  <div><h1 class="font-bold text-lg">🎓 ClassManager Pro</h1><p id="current-class-display" class="text-xs hidden"></p></div>
   <div class="flex gap-2 items-center">
    <span id="user-role-text" class="text-xs bg-sky-800 px-3 py-1 rounded-full">Khách (Guest)</span>
    <button id="auth-btn" onclick="openLoginModal()" class="bg-white text-sky-700 px-3 py-1 rounded-lg text-sm font-semibold"><span id="auth-btn-text">Đăng nhập</span></button>
@@ -51,7 +51,15 @@
   <div class="bg-white p-4 rounded-xl shadow"><div class="text-xs text-gray-500">Vắng hôm nay</div><b id="stat-absent-today" class="text-2xl">0</b></div>
   <div class="bg-white p-4 rounded-xl shadow"><div class="text-xs text-gray-500">Điểm thi đua TB</div><b id="stat-avg-points" class="text-2xl">100</b></div>
  </div>
- <div class="bg-white p-5 rounded-xl shadow"><h2 class="font-bold">Bảng tin lớp chủ nhiệm</h2><p class="text-sm text-gray-600 mt-2">Hãy vào <b>Cài đặt & Năm học</b> để tạo/chọn năm học và lớp.</p></div>
+ <div id="guest-class-selector" class="bg-white p-5 rounded-xl shadow space-y-4">
+   <div><h2 class="font-bold text-lg">🔎 Chọn lớp để xem</h2><p class="text-sm text-gray-600 mt-1">Khách vui lòng chọn năm học và lớp trước khi xem thông tin. Khi chưa chọn lớp, hệ thống không hiển thị thông tin của bất kỳ lớp nào.</p></div>
+   <div class="grid md:grid-cols-3 gap-3">
+    <select id="guest-year-select" class="p-3 border rounded-lg" onchange="guestSelectYear(this.value)"><option value="">-- Chọn năm học --</option></select>
+    <select id="guest-class-select" class="p-3 border rounded-lg" disabled><option value="">-- Chọn lớp --</option></select>
+    <button onclick="enterGuestClass()" class="px-4 py-3 bg-sky-600 text-white rounded-lg font-semibold">Xem lớp</button>
+   </div>
+  </div>
+  <div id="class-home-board" class="bg-white p-5 rounded-xl shadow hidden"><h2 class="font-bold">Bảng tin lớp chủ nhiệm</h2><p id="class-home-text" class="text-sm text-gray-600 mt-2"></p></div>
 </section>
 
 <section id="tab-settings" class="tab hidden space-y-5">
@@ -114,7 +122,7 @@
 <script>
 const SUPABASE_URL='https://zwnonbdejjazhjgxnjye.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3bm9uYmRlamphemhqZ3huanllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NjcyMTksImV4cCI6MjEwMjQ0MzIxOX0.Y8tifiEZm7unYSLvHHKKiKU-FO6jV8DRKvQ22ZcOkAM';
-let db=null,currentUser={role:'guest',username:'Guest'},currentClassId=null,academicYearsList=[],classesList=[],studentsList=[];
+let db=null,currentUser={role:'guest',username:'Guest'},currentClassId=null,currentYearId=null,academicYearsList=[],classesList=[],studentsList=[];
 
 function initSupabase(){
  try{
@@ -131,14 +139,49 @@ async function loadAcademicYears(){
  if(!db)return;
  const {data,error}=await db.from('academic_years').select('*').order('name',{ascending:false});
  if(error){console.error(error);return}
- academicYearsList=data||[];renderAcademicYears();
- const active=academicYearsList.find(x=>x.is_active);
- if(active) await loadClasses(active.id);
+ academicYearsList=data||[];
+ renderAcademicYears();
+ renderGuestYearSelect();
+ // Không tự động chọn năm/lớp khi chưa có lựa chọn của người dùng.
+ // Điều này ngăn khách nhìn thấy thông tin của lớp mặc định.
 }
 function renderAcademicYears(){
  const c=document.getElementById('academic-year-list');
  c.innerHTML=academicYearsList.length?academicYearsList.map(y=>`<div class="flex justify-between items-center p-3 border rounded ${y.is_active?'bg-blue-50 border-blue-300':''}"><div><b>${esc(y.name)}</b><div class="text-xs text-emerald-600">${y.is_active?'ĐANG SỬ DỤNG':''}</div></div><button onclick="selectAcademicYear('${y.id}')" class="px-3 py-1 bg-sky-600 text-white rounded text-xs">${y.is_active?'Đang chọn':'Chọn'}</button></div>`).join(''):'<div class="text-sm text-gray-400">Chưa có năm học nào.</div>';
 }
+function renderGuestYearSelect(){
+ const y=document.getElementById('guest-year-select');
+ if(!y)return;
+ const keep=y.value;
+ y.innerHTML='<option value="">-- Chọn năm học --</option>'+academicYearsList.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
+ if(keep && academicYearsList.some(a=>a.id===keep)) y.value=keep;
+}
+async function guestSelectYear(yearId){
+ currentYearId=null; currentClassId=null; classesList=[]; studentsList=[];
+ document.getElementById('current-class-display').textContent='';
+ document.getElementById('current-class-display').classList.add('hidden');
+ document.getElementById('class-home-board').classList.add('hidden');
+ document.getElementById('guest-class-select').disabled=true;
+ document.getElementById('guest-class-select').innerHTML='<option value="">-- Chọn lớp --</option>';
+ renderStudents(); renderClasses();
+ if(!yearId || !db)return;
+ const {data,error}=await db.from('classes').select('*').eq('academic_year_id',yearId).order('name');
+ if(error){console.error(error);return}
+ classesList=data||[]; currentYearId=yearId;
+ const c=document.getElementById('guest-class-select');
+ c.innerHTML='<option value="">-- Chọn lớp --</option>'+classesList.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+ c.disabled=false;
+ renderClasses();
+}
+async function enterGuestClass(){
+ const yearId=document.getElementById('guest-year-select').value;
+ const classId=document.getElementById('guest-class-select').value;
+ if(!yearId)return alert('Vui lòng chọn năm học.');
+ if(!classId)return alert('Vui lòng chọn lớp.');
+ currentYearId=yearId;
+ await selectClass(classId);
+}
+
 async function createAcademicYear(){
  if(currentUser.role==='guest')return alert('Thầy cần đăng nhập tài khoản quản trị.');
  const input=document.getElementById('setting-year-input'),name=input.value.trim();if(!name)return alert('Nhập tên năm học.');
@@ -152,13 +195,18 @@ async function selectAcademicYear(id){
  if(currentUser.role==='guest')return alert('Thầy cần đăng nhập.');
  const {error}=await db.from('academic_years').update({is_active:false}).neq('id',id);if(error)return alert(error.message);
  const r=await db.from('academic_years').update({is_active:true}).eq('id',id);if(r.error)return alert(r.error.message);
+ currentYearId=id; currentClassId=null;
  await loadAcademicYears();
+ await loadClasses(id);
 }
 async function loadClasses(yearId){
+ if(!db || !yearId){classesList=[];renderClasses();return}
  const {data,error}=await db.from('classes').select('*').eq('academic_year_id',yearId).order('name');
  if(error){console.error(error);return}
- classesList=data||[];renderClasses();
- if(classesList.length&&!currentClassId){selectClass(classesList[0].id)}
+ currentYearId=yearId;
+ classesList=data||[];
+ renderClasses();
+ // Không tự động select lớp đầu tiên.
 }
 function renderClasses(){
  const c=document.getElementById('class-list');
@@ -172,11 +220,21 @@ async function createClass(){
  const teacher=document.getElementById('setting-teacher-input').value.trim()||'Thầy Chủ Nhiệm';
  const {data,error}=await db.from('classes').insert({academic_year_id:year.id,name,teacher_name:teacher}).select().single();
  if(error)return alert('Không thể tạo lớp: '+error.message);
- document.getElementById('setting-class-input').value='';await loadClasses(year.id);selectClass(data.id);alert('Đã tạo lớp '+name);
+ document.getElementById('setting-class-input').value='';currentYearId=year.id;await loadClasses(year.id);await selectClass(data.id);alert('Đã tạo lớp '+name);
 }
 async function selectClass(id){
- currentClassId=id;const cls=classesList.find(x=>x.id===id);if(!cls)return;
- const year=academicYearsList.find(x=>x.is_active);document.getElementById('current-class-display').textContent=(year?year.name+' | ':'')+'Lớp '+cls.name;renderClasses();await loadStudentsByClass();
+ const cls=classesList.find(x=>x.id===id);if(!cls)return;
+ currentClassId=id;
+ if(!currentYearId) currentYearId=cls.academic_year_id;
+ const year=academicYearsList.find(x=>x.id===currentYearId) || academicYearsList.find(x=>x.id===cls.academic_year_id);
+ const display=(year?year.name+' | ':'')+'Lớp '+cls.name;
+ const header=document.getElementById('current-class-display');
+ header.textContent=display; header.classList.remove('hidden');
+ document.getElementById('class-home-text').textContent='Đang xem: '+display+'.';
+ document.getElementById('class-home-board').classList.remove('hidden');
+ document.getElementById('guest-class-selector').classList.toggle('hidden',currentUser.role!=='guest');
+ renderClasses();await loadStudentsByClass();
+ if(currentUser.role==='guest') switchTab('home');
 }
 async function loadStudentsByClass(){
  if(!db||!currentClassId){studentsList=[];renderStudents();return}
@@ -205,11 +263,65 @@ async function loadAttendanceData(){if(!db||!currentClassId)return;const date=do
 async function saveAttendance(){if(!currentClassId)return alert('Chọn lớp.');const date=document.getElementById('attendance-date').value;for(const s of studentsList){const status=document.querySelector(`input[name="att_${s.id}"]:checked`)?.value||'present';await db.from('attendance').upsert({student_id:s.id,attendance_date:date,status},{onConflict:'student_id,attendance_date'});}alert('Đã lưu điểm danh.');}
 function exportFullReportExcel(){const rows=[['Mã HS','Họ tên','Giới tính','Ngày sinh','SĐT phụ huynh'],...studentsList.map(s=>[s.student_code,s.full_name,s.gender,s.dob,s.parent_phone])];const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'DanhSach');XLSX.writeFile(wb,'Bao_Cao_Lop.xlsx');}
 function resetClassData(){alert('Chức năng reset đang khóa để tránh xóa nhầm dữ liệu.');}
-function openLoginModal(){if(currentUser.role!=='guest'){currentUser={role:'guest',username:'Guest'};applyPermissions();return alert('Đã đăng xuất.')}const m=document.getElementById('login-modal');m.classList.remove('hidden');m.classList.add('flex');}
+function openLoginModal(){
+ if(currentUser.role!=='guest'){
+  currentUser={role:'guest',username:'Guest'};
+  currentClassId=null;currentYearId=null;classesList=[];studentsList=[];
+  document.getElementById('current-class-display').textContent='';
+  document.getElementById('current-class-display').classList.add('hidden');
+  document.getElementById('class-home-board').classList.add('hidden');
+  document.getElementById('guest-class-selector').classList.remove('hidden');
+  const ys=document.getElementById('guest-year-select'); if(ys) ys.value='';
+  const cs=document.getElementById('guest-class-select'); if(cs){cs.innerHTML='<option value="">-- Chọn lớp --</option>';cs.disabled=true;}
+  renderStudents();renderClasses();applyPermissions();switchTab('home');
+  return alert('Đã đăng xuất.');
+ }
+ const m=document.getElementById('login-modal');m.classList.remove('hidden');m.classList.add('flex');
+}
 function closeLoginModal(){const m=document.getElementById('login-modal');m.classList.add('hidden');m.classList.remove('flex');}
-function handleLogin(){const u=document.getElementById('login-username').value,p=document.getElementById('login-password').value;if(u==='admin'&&p==='123456'){currentUser={role:'gvcn',username:'Thầy Chủ Nhiệm'};applyPermissions();closeLoginModal();alert('Đăng nhập thành công!')}else alert('Sai tài khoản hoặc mật khẩu. Mặc định: admin / 123456');}
+async function handleLogin(){
+ const u=document.getElementById('login-username').value,p=document.getElementById('login-password').value;
+ if(u==='admin'&&p==='123456'){
+  currentUser={role:'gvcn',username:'Thầy Chủ Nhiệm'};
+  applyPermissions();closeLoginModal();
+  document.getElementById('guest-class-selector').classList.add('hidden');
+  await openManagedClass();
+  alert('Đăng nhập thành công!');
+ }else alert('Sai tài khoản hoặc mật khẩu. Mặc định: admin / 123456');
+}
+async function openManagedClass(){
+ if(!db)return;
+ // Tìm lớp do tài khoản giáo viên đang quản lý; ưu tiên năm học đang sử dụng.
+ const active=academicYearsList.find(x=>x.is_active);
+ let query=db.from('classes').select('*').order('name');
+ if(active) query=query.eq('academic_year_id',active.id);
+ const {data,error}=await query;
+ if(error){console.error(error);return}
+ const managed=(data||[]).filter(x=>(x.teacher_name||'')===currentUser.username);
+ const fallback=(data||[]);
+ const cls=managed[0] || (currentUser.username==='Thầy Chủ Nhiệm'?fallback[0]:null);
+ if(!cls){
+  currentClassId=null; currentYearId=null;
+  document.getElementById('current-class-display').textContent='';
+  document.getElementById('current-class-display').classList.add('hidden');
+  switchTab('settings');
+  return alert('Tài khoản chưa được gán lớp quản lý. Vui lòng vào Cài đặt để tạo hoặc chọn lớp.');
+ }
+ currentYearId=cls.academic_year_id;
+ await loadClasses(currentYearId);
+ await selectClass(cls.id);
+ switchTab('home');
+}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
-document.addEventListener('DOMContentLoaded',async()=>{document.getElementById('attendance-date').valueAsDate=new Date();initSupabase();applyPermissions();updateConductCategories();await loadAcademicYears();if(!currentClassId)switchTab('settings');});
+document.addEventListener('DOMContentLoaded',async()=>{
+ document.getElementById('attendance-date').valueAsDate=new Date();
+ initSupabase();applyPermissions();updateConductCategories();
+ await loadAcademicYears();
+ // Mặc định luôn ở trạng thái chưa chọn lớp; không hiển thị năm học/lớp trên header.
+ document.getElementById('current-class-display').textContent='';
+ document.getElementById('current-class-display').classList.add('hidden');
+ switchTab('home');
+});
 </script>
 </body>
 </html>
