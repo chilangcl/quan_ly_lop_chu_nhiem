@@ -411,27 +411,26 @@
 
     <!-- JAVASCRIPT CORE LOGIC -->
     <script>
-        // --- 1. CẤU HÌNH SUPABASE ---
-             const SUPABASE_URL = 'https://zwnonbdejjazhjgxnjye.supabase.co';
+     // --- 1. CẤU HÌNH SUPABASE ---
 
-             const SUPABASE_KEY = 'url: https://zwnonbdejjazhjgxnjye.supabase.co
-key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3bm9uYmRlamphemhqZ3huanllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NjcyMTksImV4cCI6MjEwMjQ0MzIxOX0.Y8tifiEZm7unYSLvHHKKiKU-FO6jV8DRKvQ22ZcOkAM';
+const SUPABASE_URL = 'https://zwnonbdejjazhjgxnjye.supabase.co';
 
-             let supabase = null;
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3bm9uYmRlamphemhqZ3huanllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NjcyMTksImV4cCI6MjEwMjQ0MzIxOX0.Y8tifiEZm7unYSLvHHKKiKU-FO6jV8DRKvQ22ZcOkAM';
 
-             console.log('Đang kiểm tra Supabase...');
-             console.log('SUPABASE_URL:', SUPABASE_URL);
+let supabase = null;
 
-             if (window.supabase && typeof window.supabase.createClient === 'function') {
+console.log('Đang kiểm tra kết nối Supabase...');
 
-       try {
+if (window.supabase && typeof window.supabase.createClient === 'function') {
+
+    try {
 
         supabase = window.supabase.createClient(
             SUPABASE_URL,
             SUPABASE_KEY
         );
 
-        console.log('✅ Supabase Client đã được khởi tạo.');
+        console.log('✅ Đã kết nối Supabase thành công!');
 
         const alertBox = document.getElementById('supabase-alert');
 
@@ -441,7 +440,7 @@ key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3bm
 
     } catch (error) {
 
-        console.error('❌ Không thể khởi tạo Supabase:', error);
+        console.error('❌ Lỗi khởi tạo Supabase:', error);
 
     }
 
@@ -449,10 +448,9 @@ key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3bm
 
     console.error('❌ Không tìm thấy thư viện Supabase JS.');
 
-    alert('Không tải được thư viện Supabase. Hãy kiểm tra kết nối Internet.');
+    alert('Không tải được thư viện Supabase. Hãy kiểm tra Internet.');
 
 }
-
         // State quản lý ứng dụng
         let currentUser = { role: 'guest', username: 'Guest' };
         let currentClassId = null;
