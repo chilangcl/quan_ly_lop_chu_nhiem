@@ -519,7 +519,7 @@ body{background-image:radial-gradient(circle at 10% 10%,rgba(79,70,229,.08),tran
                     <tr><td>Học tập & ý thức lớp</td><td>Không học bài / Không làm bài</td><td><b>-5</b></td></tr>
                     <tr><td>Học tập & ý thức lớp</td><td>Mất trật tự trong giờ học</td><td><b>-3</b></td></tr>
                     <tr><td>Học tập & ý thức lớp</td><td>Sử dụng điện thoại không phép</td><td><b>-5</b></td></tr>
-                    <tr><td>An toàn & pháp luật</td><td>Vi phạm an toàn giao thông</td><td><b>-20</b></td></tr>
+                    <tr><td>An toàn & pháp luật</td><td>Vi phạm an toàn giao thông</td><td><b>-15 đến -20</b></td></tr>
                   </tbody>
                 </table>
               </div>
@@ -531,8 +531,8 @@ body{background-image:radial-gradient(circle at 10% 10%,rgba(79,70,229,.08),tran
                 <table class="table guide-table">
                   <thead><tr><th>Nội dung khen thưởng</th><th>Mức cộng</th></tr></thead>
                   <tbody>
-                    <tr><td>Thành tích đột xuất (giải HSG, năng khiếu, thể thao cấp Trường/Tỉnh)</td><td><b>+20</b></td></tr>
-                    <tr><td>Làm việc tốt (nhặt được của rơi trả lại, giúp đỡ bạn bè, bảo vệ tài sản chung)</td><td><b>+10</b></td></tr>
+                    <tr><td>Thành tích đột xuất (giải HSG, năng khiếu, thể thao cấp Trường/Tỉnh)</td><td><b>+10 đến +20</b></td></tr>
+                    <tr><td>Làm việc tốt (nhặt được của rơi trả lại, giúp đỡ bạn bè, bảo vệ tài sản chung)</td><td><b>+5 đến +10</b></td></tr>
                     <tr><td>Tích cực hoạt động tập thể (văn nghệ, thể thao, phong trào Đoàn)</td><td><b>+5 / sự kiện</b></td></tr>
                     <tr><td>Đạt điểm 9, 10 trong giờ học</td><td><b>+2 / điểm tốt</b></td></tr>
                     <tr><td>Tuần học tốt (cá nhân không vi phạm bất kỳ lỗi nào trong tuần)</td><td><b>+5</b></td></tr>
@@ -593,12 +593,12 @@ body{background-image:radial-gradient(circle at 10% 10%,rgba(79,70,229,.08),tran
         <div class="page-head"><div><h2>Tài khoản & phân quyền</h2><div class="muted">GVCN quản lý tài khoản và cấp quyền đúng theo lớp.</div></div></div>
         <div class="card" style="margin-bottom:16px">
           <h3>➕ Tạo tài khoản GVCN / cán bộ lớp</h3>
-          <div class="muted" style="margin-bottom:12px">Chỉ tài khoản GVCN mới có thể mở chức năng này. Tài khoản được tạo qua Edge Function và ghi quyền lớp ở phía máy chủ.</div>
+          <div class="muted" style="margin-bottom:12px">Quản trị viên toàn hệ thống có thể tạo GVCN; GVCN chỉ có thể tạo cán sự cho lớp mình phụ trách. Tài khoản được tạo qua Edge Function và ghi quyền lớp ở phía máy chủ.</div>
           <div class="form-grid">
             <div class="field"><label>Tài khoản *</label><input id="newUsername" placeholder="gvcn12a8" autocomplete="off"></div>
             <div class="field"><label>Họ và tên *</label><input id="newName" placeholder="Nguyễn Văn A"></div>
             <div class="field"><label>Mật khẩu *</label><input id="newPassword" type="password" placeholder="Tối thiểu 8 ký tự"></div>
-            <div class="field"><label>Vai trò *</label><select id="newRole"><option value="admin">GVCN</option><option value="loptruong">Lớp trưởng</option><option value="loppho">Lớp phó</option><option value="to1">Tổ trưởng 1</option><option value="to2">Tổ trưởng 2</option><option value="to3">Tổ trưởng 3</option><option value="to4">Tổ trưởng 4</option></select></div>
+            <div class="field"><label>Vai trò *</label><select id="newRole"><option value="teacher">GVCN</option><option value="loptruong">Lớp trưởng</option><option value="loppho">Lớp phó</option><option value="to1">Tổ trưởng 1</option><option value="to2">Tổ trưởng 2</option><option value="to3">Tổ trưởng 3</option><option value="to4">Tổ trưởng 4</option></select></div>
             <div class="field span2"><label>Lớp được phép vào *</label><select id="newClassSelect"></select></div>
           </div>
           <div class="actions" style="margin-top:12px"><button class="btn" onclick="createClassUser()">🔐 Tạo tài khoản</button></div>
@@ -660,8 +660,8 @@ body{background-image:radial-gradient(circle at 10% 10%,rgba(79,70,229,.08),tran
 
 <script>
 const DATA_PREFIX='QL12A8_DATA_';
-const SUPABASE_URL = 'https://rngppokrwzohnnktmefa.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuZ3Bwb2tyd3pvaG5ua3RtZWZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMDg4NzMsImV4cCI6MjEwMjc4NDg3M30.mFB2BnweV_nhew13AYZy98TkOyFe7bole3jZOYwMnq8';
+const SUPABASE_URL = 'https://ewbrnzgmivkmddkkolwq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_BKIdnIoQQl4sovkFiWWMEQ_82Yp3Im-';
 const { createClient } = window.supabase;
 let sb=null;
 try {
@@ -675,8 +675,8 @@ function dataKey(){return DATA_PREFIX+(currentStateKey||'12A8-2026-2027')}
 function loadLocalFallback(){try{return JSON.parse(localStorage.getItem(dataKey()))||seed()}catch(e){return seed()}}
 function saveLocal(){localStorage.setItem(dataKey(),JSON.stringify(state))}
 function saveData(){saveLocal()}
-function roleCanEdit(){return ['admin','loptruong','loppho','to1','to2','to3','to4'].includes(currentUser?.role)}
-function isAdmin(){return currentUser?.role==='admin'}
+function roleCanEdit(){return ['admin','teacher','loptruong','loppho','to1','to2','to3','to4'].includes(currentUser?.role)}
+function isAdmin(){return ['admin','teacher'].includes(currentUser?.role)}
 async function assertClassAccess(classId){
   if(!currentUser||!classId) throw new Error('Không xác định được tài khoản hoặc lớp.');
   if(isAdmin()) return true;
@@ -704,7 +704,8 @@ function setLoginStatus(message,type='info'){const el=document.getElementById('c
 function getCurrentUserRoleDisplay(){
   const role=String(currentUser?.role||'').toLowerCase();
   const name=currentUser?.name||currentUser?.username||'';
-  if(role==='admin') return `GVCN: ${name}`;
+  if(role==='admin') return `Quản trị viên: ${name}`;
+  if(role==='teacher') return `GVCN: ${name}`;
   if(role==='loptruong') return `Lớp trưởng: ${name}`;
   if(role==='loppho') return `Lớp phó: ${name}`;
   const m=role.match(/^to([1-4])$/);
@@ -714,7 +715,7 @@ function getCurrentUserRoleDisplay(){
 }
 function setUserUi(){
   document.getElementById('userName').textContent=currentUser?.name||currentUser?.username||'';
-  const roleText=isAdmin()?'GVCN':(currentUser?.roleLabel||currentUser?.role||'');
+  const roleText=currentUser?.role==='admin'?'Quản trị viên':(currentUser?.role==='teacher'?'GVCN':(currentUser?.roleLabel||currentUser?.role||''));
   const scopeText=currentUser?.scope||currentClass?.class_name||'';
   document.getElementById('userRole').textContent=roleText+' · '+scopeText;
   document.getElementById('avatar').textContent=(currentUser?.name||currentUser?.username||'N').charAt(0).toUpperCase();
@@ -1094,7 +1095,7 @@ async function populateNewClassSelect(){
 }
 function userCreateNotice(msg,bad=false){const e=document.getElementById('userCreateStatus');if(!e)return;e.style.display='block';e.className='notice '+(bad?'danger':'ok');e.textContent=msg}
 async function createClassUser(){
- if(!isAdmin()){alert('🔒 Chỉ GVCN mới được tạo tài khoản.');return}
+ if(!isAdmin()){alert('🔒 Chỉ Quản trị viên hoặc GVCN mới được tạo tài khoản.');return}
  const username=document.getElementById('newUsername').value.trim().toLowerCase().replace(/\s+/g,''),name=document.getElementById('newName').value.trim(),password=document.getElementById('newPassword').value,role=document.getElementById('newRole').value,classId=document.getElementById('newClassSelect').value;
  if(!username||!name||!password||!classId){userCreateNotice('❌ Vui lòng nhập đủ thông tin.',true);return}
  if(!/^[a-z0-9._-]{3,40}$/.test(username)){userCreateNotice('❌ Tài khoản chỉ gồm chữ thường, số, dấu chấm, gạch ngang hoặc gạch dưới.',true);return}
@@ -1104,7 +1105,7 @@ async function createClassUser(){
  try{
    const {data,error}=await sb.functions.invoke('create-class-user',{body:{username,name,password,role,class_id:classId,scope:'Toàn lớp',created_by:currentUser.id}});
    if(error)throw error;if(!data?.ok)throw new Error(data?.error||'Không tạo được tài khoản');
-   userCreateNotice(`✅ Đã tạo ${role==='admin'?'tài khoản GVCN':'tài khoản cán bộ lớp'} ${username} cho ${targetClass.class_name}.`);
+   userCreateNotice(`✅ Đã tạo ${role==='teacher'?'tài khoản GVCN':'tài khoản cán bộ lớp'} ${username} cho ${targetClass.class_name}.`);
    document.getElementById('newUsername').value='';document.getElementById('newName').value='';document.getElementById('newPassword').value='';await renderUsers();
  }catch(e){console.error(e);userCreateNotice('❌ '+(e.message||String(e)),true)}
 }
